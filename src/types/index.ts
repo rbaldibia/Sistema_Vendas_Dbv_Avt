@@ -5,6 +5,7 @@ export interface Item {
   description: string;
   unit: string;
   price: number;
+  available?: boolean;
 }
 
 // Order related types
@@ -34,9 +35,11 @@ export interface Order {
 // Context types
 export interface ItemContextType {
   items: Item[];
-  addItem: (item: Omit<Item, 'id'>) => void;
+  addItem: (item: Omit<Item, 'id'>) => string;
   updateItem: (id: string, item: Omit<Item, 'id'>) => void;
   deleteItem: (id: string) => void;
+  toggleItemAvailability: (id: string) => void;
+  setItemAvailability: (id: string, available: boolean) => void;
   getItemById: (id: string) => Item | undefined;
   getItemByCode: (code: string) => Item | undefined;
 }

@@ -28,7 +28,7 @@ const Navbar = () => {
           <NavLink to="/sales" className="flex items-center space-x-2.5 group">
             <img src={logo} alt="Vandas Dbv" className="object-contain brightness-0 invert transition-transform group-hover:scale-105" style={{ width: '44px', height: '44px' }} />
             <div className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight leading-tight">Vendas Dbv/Avt</span>
+              <span className="text-lg font-bold tracking-tight leading-tight">Campanhas Dbv/Avt</span>
               <span className="text-xs text-blue-200 dark:text-slate-400 font-medium">Sistema de Vendas</span>
             </div>
           </NavLink>
@@ -40,10 +40,9 @@ const Navbar = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-blue-700 dark:bg-slate-800 text-white shadow-xs font-semibold'
-                      : 'text-blue-100 dark:text-slate-300 hover:bg-blue-700/70 dark:hover:bg-slate-800/70 hover:text-white'
+                  `flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${isActive
+                    ? 'bg-blue-700 dark:bg-slate-800 text-white shadow-xs font-semibold'
+                    : 'text-blue-100 dark:text-slate-300 hover:bg-blue-700/70 dark:hover:bg-slate-800/70 hover:text-white'
                   }`
                 }
               >
@@ -107,10 +106,9 @@ const Navbar = () => {
                     key={item.path}
                     to={item.path}
                     className={({ isActive }) =>
-                      `flex items-center space-x-3 px-4 py-3 rounded-lg text-base font-medium transition-colors ${
-                        isActive
-                          ? 'bg-blue-700 dark:bg-slate-800 text-white font-bold'
-                          : 'text-blue-100 dark:text-slate-300 hover:bg-blue-800 dark:hover:bg-slate-800'
+                      `flex items-center space-x-3 px-4 py-3 rounded-lg text-base font-medium transition-colors ${isActive
+                        ? 'bg-blue-700 dark:bg-slate-800 text-white font-bold'
+                        : 'text-blue-100 dark:text-slate-300 hover:bg-blue-800 dark:hover:bg-slate-800'
                       }`
                     }
                     onClick={toggleMenu}

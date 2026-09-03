@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle, CookingPot, Package, Truck, Filter } from 'lucide-react';
+import { Clock, CheckCircle, CookingPot, Package, Truck, Filter, AlertCircle, Check, X } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
+import { useItemContext } from '../contexts/ItemContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -9,9 +10,11 @@ import { formatDateTime } from '../utils/formatters';
 
 const Kitchen = () => {
   const { orders, updateOrderStatus } = useOrderContext();
+  const { items, toggleItemAvailability } = useItemContext();
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
+  const [showItemAvailability, setShowItemAvailability] = useState(false);
   
   // Filter out delivered orders and sort by creation date (oldest first)
   useEffect(() => {
@@ -35,7 +38,18 @@ const Kitchen = () => {
       setStatusUpdateSuccess(null);
     }, 3000);
   };
-  
+
+  const handleToggleItem = (itemId: string, itemDescription: string, currentAvailable: boolean) => {
+    toggleItemAvailability(itemId);
+    const newStatus = !currentAvailable ? 'Disponível' : 'Esgotado';
+    setStatusUpdateSuccess(`Item "${itemDescription}" marcado como ${newStatus}`);
+    setTimeout(() => {
+      setStatusUpdateSuccess(null);
+    }, 3000);
+  };
+
+  const unavailableItemsCount = items.filter(i => i.available === false).length;
+
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
       case 'Pendente': return <Clock size={16} />;
@@ -90,6 +104,89 @@ const Kitchen = () => {
           <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             Gerencie as comandas recebidas e atualize os estágios de produção
           </p>
+        </div>
+
+        {/* Top Right: Items Availability Toggle Menu */}
+        <div className="relative self-start sm:self-auto">
+          <button
+            onClick={() => setShowItemAvailability(!showItemAvailability)}
+            className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-300 dark:border-slate-700 transition-all shadow-xs"
+          >
+            <CookingPot size={18} className="text-amber-500" />
+            <span>Itens em Venda</span>
+            {unavailableItemsCount > 0 ? (
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                {unavailableItemsCount} esgotado(s)
+              </span>
+            ) : (
+              <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                Todos ok
+              </span>
+            )}
+          </button>
+
+          {/* Item Availability Dropdown Modal/Card */}
+          {showItemAvailability && (
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800 mb-3">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle size={18} className="text-blue-600 dark:text-blue-400" />
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Disponibilidade dos Itens</h3>
+                </div>
+                <button
+                  onClick={() => setShowItemAvailability(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {items.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">Nenhum item cadastrado no sistema.</p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                  {items.map((item) => {
+                    const isAvailable = item.available !== false;
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50"
+                      >
+                        <div className="flex-1 pr-2">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight">
+                            {item.description}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Unidade: {item.unit}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleToggleItem(item.id, item.description, isAvailable)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 shadow-xs ${
+                            isAvailable
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 hover:bg-emerald-200'
+                              : 'bg-red-100 text-red-800 dark:bg-red-950/80 dark:text-red-300 hover:bg-red-200'
+                          }`}
+                        >
+                          {isAvailable ? (
+                            <>
+                              <Check size={14} />
+                              <span>Disponível</span>
+                            </>
+                          ) : (
+                            <>
+                              <X size={14} />
+                              <span>Esgotado</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       

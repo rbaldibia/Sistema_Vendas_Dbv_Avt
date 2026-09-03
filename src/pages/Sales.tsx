@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ChefHat, ShoppingBag, Archive, ShoppingCart, Package } from 'lucide-react';
+import { Plus, Trash2, ChefHat, ShoppingBag, Archive, ShoppingCart, Package, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useItemContext } from '../contexts/ItemContext';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
@@ -10,7 +10,7 @@ import { formatCurrency } from '../utils/formatters';
 import { OrderItem, PaymentType } from '../types';
 
 const Sales = () => {
-  const { items } = useItemContext();
+  const { items, toggleItemAvailability } = useItemContext();
   const { orders, addOrder, getNextOrderNumber, archiveOrders, clearOrders } = useOrderContext();
   
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -38,6 +38,11 @@ const Sales = () => {
     const item = items.find(i => i.id === itemId);
     
     if (!item) return;
+
+    if (item.available === false) {
+      setErrorMessage(`O item "${item.description}" está esgotado e não pode ser vendido.`);
+      return;
+    }
     
     const existingItem = orderItems.find(oi => oi.itemId === itemId);
     
@@ -85,6 +90,17 @@ const Sales = () => {
   const handleSubmitOrder = () => {
     if (orderItems.length === 0) {
       setErrorMessage('Adicione pelo menos um item ao pedido.');
+      return;
+    }
+
+    // Check if any selected item was deactivated in the meantime
+    const unavailableInCart = orderItems.find(oi => {
+      const found = items.find(i => i.id === oi.itemId);
+      return found && found.available === false;
+    });
+
+    if (unavailableInCart) {
+      setErrorMessage(`O item "${unavailableInCart.description}" no carrinho ficou esgotado na cozinha. Remova-o para prosseguir.`);
       return;
     }
 
@@ -191,7 +207,7 @@ const Sales = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Available items */}
         <div className={`lg:col-span-2 ${mobileTab === 'products' ? 'block' : 'hidden lg:block'}`}>
-          <Card title="Itens Disponíveis">
+          <Card title="Itens Cadastrados">
             {items.length === 0 ? (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 <Package size={40} className="mx-auto mb-2 text-slate-400 dark:text-slate-600" />
@@ -200,40 +216,74 @@ const Sales = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {items.map((item) => {
+                  const isAvailable = item.available !== false;
                   const inCart = orderItems.find(oi => oi.itemId === item.id);
                   return (
                     <div 
                       key={item.id} 
-                      className="bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 rounded-xl p-3.5 sm:p-4 hover:shadow-md transition-all flex flex-col justify-between"
+                      className={`border rounded-xl p-3.5 sm:p-4 transition-all flex flex-col justify-between ${
+                        isAvailable
+                          ? 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/60 hover:shadow-md'
+                          : 'bg-red-50/30 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 opacity-90'
+                      }`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h3 className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">{item.description}</h3>
-                          <span className="inline-block mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 rounded-md">
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">{item.description}</h3>
+                            {!isAvailable && (
+                              <span className="text-[10px] font-extrabold uppercase tracking-wide bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <AlertTriangle size={10} />
+                                Esgotado
+                              </span>
+                            )}
+                          </div>
+                          <span className="inline-block mt-1 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 rounded-md">
                             {item.unit}
                           </span>
                         </div>
-                        <p className="font-bold text-blue-600 dark:text-blue-400 text-lg">
+                        <p className={`font-bold text-lg ${isAvailable ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 line-through'}`}>
                           {formatCurrency(item.price)}
                         </p>
                       </div>
                       
-                      <div className="mt-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/40 flex items-center justify-between">
+                      <div className="mt-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/40 flex items-center justify-between gap-2">
                         {inCart ? (
                           <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
                             {inCart.quantity} no carrinho
                           </span>
+                        ) : !isAvailable ? (
+                          <button
+                            onClick={() => toggleItemAvailability(item.id)}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center space-x-1"
+                            title="Clique para reativar este produto se tiver estoque novamente"
+                          >
+                            <RefreshCw size={12} />
+                            <span>Reativar Item</span>
+                          </button>
                         ) : (
                           <span />
                         )}
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          icon={<Plus size={16} />}
-                          onClick={() => handleAddItem(item.id)}
-                        >
-                          Adicionar
-                        </Button>
+
+                        {isAvailable ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<Plus size={16} />}
+                            onClick={() => handleAddItem(item.id)}
+                          >
+                            Adicionar
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled
+                            className="opacity-50 cursor-not-allowed"
+                          >
+                            Indisponível
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );

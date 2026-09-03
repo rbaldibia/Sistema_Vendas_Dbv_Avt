@@ -17,28 +17,68 @@ interface ItemProviderProps {
 }
 
 export const ItemProvider = ({ children }: ItemProviderProps) => {
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<Item[]>(() => {
+    const saved = localStorage.getItem('registeredItems');
+    if (!saved) return [];
+    try {
+      const parsed: Item[] = JSON.parse(saved);
+      return parsed.map((item) => ({
+        ...item,
+        available: item.available ?? true,
+      }));
+    } catch {
+      return [];
+    }
+  });
+
+  const saveItems = (newItems: Item[]) => {
+    setItems(newItems);
+    localStorage.setItem('registeredItems', JSON.stringify(newItems));
+  };
 
   const addItem = (item: Omit<Item, 'id'>) => {
-    const newItem = { ...item, id: uuidv4() };
-    setItems([...items, newItem]);
+    const newItem: Item = {
+      ...item,
+      id: uuidv4(),
+      available: item.available ?? true,
+    };
+    saveItems([...items, newItem]);
     return newItem.id;
   };
 
   const updateItem = (id: string, updatedItem: Omit<Item, 'id'>) => {
-    setItems(
-      items.map((item) => (item.id === id ? { ...updatedItem, id } : item))
+    const newItems = items.map((item) =>
+      item.id === id
+        ? { ...updatedItem, id, available: updatedItem.available ?? item.available ?? true }
+        : item
     );
+    saveItems(newItems);
   };
 
   const deleteItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id));
+    saveItems(items.filter((item) => item.id !== id));
+  };
+
+  const toggleItemAvailability = (id: string) => {
+    const newItems = items.map((item) =>
+      item.id === id
+        ? { ...item, available: item.available === undefined ? false : !item.available }
+        : item
+    );
+    saveItems(newItems);
+  };
+
+  const setItemAvailability = (id: string, available: boolean) => {
+    const newItems = items.map((item) =>
+      item.id === id ? { ...item, available } : item
+    );
+    saveItems(newItems);
   };
 
   const getItemById = (id: string) => {
     return items.find((item) => item.id === id);
   };
-  
+
   const getItemByCode = (code: string) => {
     return items.find((item) => item.code === code);
   };
@@ -48,6 +88,8 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
     addItem,
     updateItem,
     deleteItem,
+    toggleItemAvailability,
+    setItemAvailability,
     getItemById,
     getItemByCode,
   };
