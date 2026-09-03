@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+walkthrough.md
+implementation_plan.md
 
 # Editor directories and files
 .vscode/*
