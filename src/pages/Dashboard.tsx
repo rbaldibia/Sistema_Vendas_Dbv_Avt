@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, TrendingUp, Users, DollarSign } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
@@ -7,7 +7,30 @@ import { formatCurrency } from '../utils/formatters';
 
 const Dashboard = () => {
   const { archivedOrders } = useOrderContext();
+  const [filterMode, setFilterMode] = useState<'date' | 'period'>('date');
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [dateRange, setDateRange] = useState('7');
+
+  const availableDates = useMemo(() => {
+    const dates = new Set<string>();
+    archivedOrders.forEach(order => {
+      const date = new Date(order.createdAt).toISOString().split('T')[0];
+      dates.add(date);
+    });
+    return Array.from(dates).sort().reverse();
+  }, [archivedOrders]);
+
+  useEffect(() => {
+    if (availableDates.length > 0 && (!selectedDate || !availableDates.includes(selectedDate))) {
+      setSelectedDate(availableDates[0]);
+    }
+  }, [availableDates]);
+
+  const formatDateBR = (dateString: string) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  };
 
   const getDaysAgo = (days: number): Date => {
     const date = new Date();
@@ -16,10 +39,19 @@ const Dashboard = () => {
   };
 
   const filteredOrders = useMemo(() => {
-    const days = parseInt(dateRange);
-    const cutoffDate = getDaysAgo(days);
-    return archivedOrders.filter(order => new Date(order.createdAt) >= cutoffDate);
-  }, [dateRange, archivedOrders]);
+    if (filterMode === 'date') {
+      if (!selectedDate) return [];
+      return archivedOrders.filter(order => {
+        const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
+        return orderDate === selectedDate;
+      });
+    } else {
+      if (dateRange === 'all') return archivedOrders;
+      const days = parseInt(dateRange);
+      const cutoffDate = getDaysAgo(days);
+      return archivedOrders.filter(order => new Date(order.createdAt) >= cutoffDate);
+    }
+  }, [filterMode, selectedDate, dateRange, archivedOrders]);
 
   const totalRevenue = useMemo(() => {
     return filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0);
@@ -81,18 +113,65 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <Calendar size={18} className="text-slate-500 dark:text-slate-400" />
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-          >
-            <option value="7">Últimos 7 dias</option>
-            <option value="30">Últimos 30 dias</option>
-            <option value="90">Últimos 90 dias</option>
-            <option value="365">Último ano</option>
-          </select>
+        {/* Dual Filter Controls */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start sm:self-auto">
+          {/* Mode Selector Toggle */}
+          <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl shadow-inner text-xs sm:text-sm font-semibold">
+            <button
+              onClick={() => setFilterMode('date')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                filterMode === 'date'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              Por Data do Ciclo
+            </button>
+            <button
+              onClick={() => setFilterMode('period')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                filterMode === 'period'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              Por Período Acumulado
+            </button>
+          </div>
+
+          {/* Dependent Value Selector */}
+          <div className="flex items-center gap-2">
+            <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
+            {filterMode === 'date' ? (
+              <select
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              >
+                {availableDates.length === 0 ? (
+                  <option value="">Nenhuma data disponível</option>
+                ) : (
+                  availableDates.map(date => (
+                    <option key={date} value={date}>
+                      {formatDateBR(date)}
+                    </option>
+                  ))
+                )}
+              </select>
+            ) : (
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              >
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+                <option value="365">Último ano</option>
+                <option value="all">Todo o Histórico</option>
+              </select>
+            )}
+          </div>
         </div>
       </div>
 
