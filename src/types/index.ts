@@ -30,6 +30,7 @@ export interface Order {
   createdAt: Date;
   isPaid: boolean;
   paymentType?: PaymentType;
+  originallyPaid?: boolean;
 }
 
 // Context types
@@ -49,6 +50,7 @@ export interface OrderContextType {
   archivedOrders: Order[];
   addOrder: (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => string;
   updateOrderStatus: (id: string, status: OrderStatus) => void;
+  updateArchivedOrderPayment: (id: string, isPaid: boolean, paymentType?: PaymentType) => void;
   getOrderById: (id: string) => Order | undefined;
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getOrdersByDateRange: (startDate: Date, endDate: Date) => Order[];

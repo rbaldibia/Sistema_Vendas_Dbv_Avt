@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Eye, X } from 'lucide-react';
+import { Search, Eye, X, Truck, CheckCircle } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -10,11 +10,23 @@ import { Order, OrderStatus } from '../types';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 
 const OrderHistory = () => {
-  const { orders } = useOrderContext();
+  const { orders, updateOrderStatus } = useOrderContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all' | 'allExceptDelivered'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const handleMarkAsDelivered = (orderId: string, orderNumber: number) => {
+    updateOrderStatus(orderId, 'Entregue');
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder({ ...selectedOrder, status: 'Entregue' });
+    }
+    setSuccessMessage(`Pedido #${orderNumber} marcado como Entregue com sucesso!`);
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+  };
   
   // Filter orders based on search term and status
   const filteredOrders = orders.filter(order => {
@@ -68,6 +80,13 @@ const OrderHistory = () => {
           Consulte o histórico e o status em tempo real de todas as comandas
         </p>
       </div>
+
+      {successMessage && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 px-4 py-3 rounded-xl flex items-center shadow-sm text-sm font-medium animate-slide-in-right">
+          <CheckCircle size={20} className="mr-2 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          {successMessage}
+        </div>
+      )}
       
       <Card>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
@@ -134,14 +153,26 @@ const OrderHistory = () => {
                         {formatCurrency(order.totalAmount)}
                       </span>
                     </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={<Eye size={16} />}
-                      onClick={() => handleViewDetails(order)}
-                    >
-                      Detalhes
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      {order.status === 'Pronto' && (
+                        <Button
+                          variant="info"
+                          size="sm"
+                          icon={<Truck size={16} />}
+                          onClick={() => handleMarkAsDelivered(order.id, order.orderNumber)}
+                        >
+                          Entregar
+                        </Button>
+                      )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<Eye size={16} />}
+                        onClick={() => handleViewDetails(order)}
+                      >
+                        Detalhes
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -199,14 +230,26 @@ const OrderHistory = () => {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Eye size={16} />}
-                          onClick={() => handleViewDetails(order)}
-                        >
-                          Detalhes
-                        </Button>
+                        <div className="flex items-center justify-end space-x-2">
+                          {order.status === 'Pronto' && (
+                            <Button
+                              variant="info"
+                              size="sm"
+                              icon={<Truck size={16} />}
+                              onClick={() => handleMarkAsDelivered(order.id, order.orderNumber)}
+                            >
+                              Entregar
+                            </Button>
+                          )}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Eye size={16} />}
+                            onClick={() => handleViewDetails(order)}
+                          >
+                            Detalhes
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -297,7 +340,16 @@ const OrderHistory = () => {
               </div>
             </div>
 
-            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end space-x-2">
+              {selectedOrder.status === 'Pronto' && (
+                <Button
+                  variant="info"
+                  icon={<Truck size={16} />}
+                  onClick={() => handleMarkAsDelivered(selectedOrder.id, selectedOrder.orderNumber)}
+                >
+                  Entregar
+                </Button>
+              )}
               <Button variant="secondary" onClick={closeOrderDetails}>
                 Fechar
               </Button>

@@ -26,11 +26,11 @@ const Dashboard = () => {
   }, [filteredOrders]);
 
   const paidOrders = useMemo(() => {
-    return filteredOrders.filter(order => order.isPaid);
+    return filteredOrders.filter(order => order.originallyPaid ?? order.isPaid);
   }, [filteredOrders]);
 
   const unpaidOrders = useMemo(() => {
-    return filteredOrders.filter(order => !order.isPaid);
+    return filteredOrders.filter(order => !(order.originallyPaid ?? order.isPaid));
   }, [filteredOrders]);
 
   const paymentMethodDistribution = useMemo(() => {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Order, OrderContextType, OrderStatus } from '../types';
+import { Order, OrderContextType, OrderStatus, PaymentType } from '../types';
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
@@ -19,15 +19,32 @@ interface OrderProviderProps {
 export const OrderProvider = ({ children }: OrderProviderProps) => {
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('currentOrders');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed.map((order: any) => ({
+        ...order,
+        createdAt: new Date(order.createdAt),
+        originallyPaid: order.originallyPaid ?? order.isPaid
+      }));
+    } catch {
+      return [];
+    }
   });
 
   const [archivedOrders, setArchivedOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('archivedOrders');
-    return saved ? JSON.parse(saved).map((order: any) => ({
-      ...order,
-      createdAt: new Date(order.createdAt)
-    })) : [];
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed.map((order: any) => ({
+        ...order,
+        createdAt: new Date(order.createdAt),
+        originallyPaid: order.originallyPaid ?? order.isPaid
+      }));
+    } catch {
+      return [];
+    }
   });
 
   const getNextOrderNumber = () => {
@@ -42,7 +59,8 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
       ...order,
       id: uuidv4(),
       orderNumber: getNextOrderNumber(),
-      createdAt: new Date()
+      createdAt: new Date(),
+      originallyPaid: order.originallyPaid ?? order.isPaid
     };
 
     const newOrders = [...orders, newOrder];
@@ -57,6 +75,21 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     );
     setOrders(newOrders);
     localStorage.setItem('currentOrders', JSON.stringify(newOrders));
+  };
+
+  const updateArchivedOrderPayment = (id: string, isPaid: boolean, paymentType?: PaymentType) => {
+    const updated = archivedOrders.map(order =>
+      order.id === id
+        ? {
+            ...order,
+            isPaid,
+            paymentType: paymentType ?? order.paymentType,
+            originallyPaid: order.originallyPaid ?? order.isPaid
+          }
+        : order
+    );
+    setArchivedOrders(updated);
+    localStorage.setItem('archivedOrders', JSON.stringify(updated));
   };
 
   const getOrderById = (id: string) => {
@@ -74,7 +107,11 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
   };
 
   const archiveOrders = (ordersToArchive: Order[]) => {
-    const updated = [...archivedOrders, ...ordersToArchive];
+    const preparedToArchive = ordersToArchive.map(o => ({
+      ...o,
+      originallyPaid: o.originallyPaid ?? o.isPaid
+    }));
+    const updated = [...archivedOrders, ...preparedToArchive];
     setArchivedOrders(updated);
     localStorage.setItem('archivedOrders', JSON.stringify(updated));
   };
@@ -95,6 +132,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     archivedOrders,
     addOrder,
     updateOrderStatus,
+    updateArchivedOrderPayment,
     getOrderById,
     getOrdersByStatus,
     getOrdersByDateRange,

@@ -1,14 +1,21 @@
 import { useState, useMemo } from 'react';
-import { Calendar, ChevronDown } from 'lucide-react';
+import { Calendar, ChevronDown, DollarSign, CheckCircle, Filter, X } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import Select from '../components/ui/Select';
 import { formatCurrency } from '../utils/formatters';
+import { Order, PaymentType } from '../types';
 
 const SalesHistory = () => {
-  const { archivedOrders } = useOrderContext();
+  const { archivedOrders, updateArchivedOrderPayment } = useOrderContext();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'unpaid'>('all');
+  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<Order | null>(null);
+  const [paymentType, setPaymentType] = useState<PaymentType>('Dinheiro');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const availableDates = useMemo(() => {
     const dates = new Set<string>();
@@ -26,6 +33,13 @@ const SalesHistory = () => {
       return orderDate === selectedDate;
     });
   }, [selectedDate, archivedOrders]);
+
+  const displayedOrders = useMemo(() => {
+    if (paymentFilter === 'unpaid') {
+      return ordersOnSelectedDate.filter(order => !order.isPaid);
+    }
+    return ordersOnSelectedDate;
+  }, [ordersOnSelectedDate, paymentFilter]);
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
@@ -51,48 +65,83 @@ const SalesHistory = () => {
     return stats;
   }, [ordersOnSelectedDate]);
 
+  const handleConfirmPayment = () => {
+    if (!selectedOrderForPayment) return;
+
+    updateArchivedOrderPayment(selectedOrderForPayment.id, true, paymentType);
+    setSuccessMessage(`Baixa dada com sucesso para a comanda #${selectedOrderForPayment.orderNumber} (${paymentType})!`);
+    setSelectedOrderForPayment(null);
+
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3500);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Histórico de Vendas</h1>
         <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          Consulte o arquivo de vendas de ciclos passados por data
+          Consulte o arquivo de vendas de ciclos passados por data e gerencie pendências
         </p>
       </div>
 
-      <div className="relative max-w-xs">
-        <button
-          onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-          className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 flex items-center justify-between shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
-        >
-          <span className="flex items-center gap-2 text-sm font-medium">
-            <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
-            {selectedDate ? formatDateBR(selectedDate) : 'Selecione uma data'}
-          </span>
-          <ChevronDown size={18} className={`transition-transform duration-200 text-slate-400 ${isCalendarOpen ? 'rotate-180' : ''}`} />
-        </button>
+      {successMessage && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 px-4 py-3 rounded-xl flex items-center shadow-sm text-sm font-medium animate-slide-in-right">
+          <CheckCircle size={20} className="mr-2 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          {successMessage}
+        </div>
+      )}
 
-        {isCalendarOpen && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-20 max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
-            {availableDates.length === 0 ? (
-              <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                Nenhuma data com vendas arquivadas
-              </div>
-            ) : (
-              availableDates.map(date => (
-                <button
-                  key={date}
-                  onClick={() => handleSelectDate(date)}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-blue-50 dark:hover:bg-slate-700 ${
-                    selectedDate === date 
-                      ? 'bg-blue-100 dark:bg-slate-700 font-bold text-blue-700 dark:text-blue-300' 
-                      : 'text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {formatDateBR(date)}
-                </button>
-              ))
-            )}
+      {/* Date and Payment Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative max-w-xs flex-1">
+          <button
+            onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+            className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 flex items-center justify-between shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
+              {selectedDate ? formatDateBR(selectedDate) : 'Selecione uma data'}
+            </span>
+            <ChevronDown size={18} className={`transition-transform duration-200 text-slate-400 ${isCalendarOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isCalendarOpen && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-20 max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
+              {availableDates.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                  Nenhuma data com vendas arquivadas
+                </div>
+              ) : (
+                availableDates.map(date => (
+                  <button
+                    key={date}
+                    onClick={() => handleSelectDate(date)}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-blue-50 dark:hover:bg-slate-700 ${
+                      selectedDate === date 
+                        ? 'bg-blue-100 dark:bg-slate-700 font-bold text-blue-700 dark:text-blue-300' 
+                        : 'text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {formatDateBR(date)}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {selectedDate && (
+          <div className="sm:w-56">
+            <Select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value as 'all' | 'unpaid')}
+              icon={<Filter size={16} />}
+            >
+              <option value="all">Nenhum (Todos)</option>
+              <option value="unpaid">Pendentes</option>
+            </Select>
           </div>
         )}
       </div>
@@ -134,25 +183,42 @@ const SalesHistory = () => {
             </Card>
           )}
 
-          <Card title="Pedidos do Dia Arquivados">
-            {ordersOnSelectedDate.length === 0 ? (
+          <Card title={`Pedidos do Dia Arquivados ${paymentFilter === 'unpaid' ? '(Somente Pendentes)' : ''}`}>
+            {displayedOrders.length === 0 ? (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                Nenhum pedido registrado para esta data
+                {paymentFilter === 'unpaid'
+                  ? 'Nenhum pedido pendente de pagamento para esta data!'
+                  : 'Nenhum pedido registrado para esta data'}
               </div>
             ) : (
               <div className="space-y-3.5">
-                {ordersOnSelectedDate.map(order => (
+                {displayedOrders.map(order => (
                   <div key={order.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <p className="font-bold text-base text-slate-900 dark:text-slate-100">Comanda #{order.orderNumber}</p>
                         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{order.customerName}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end gap-1">
                         <p className="font-bold text-blue-600 dark:text-blue-400 text-base">{formatCurrency(order.totalAmount)}</p>
-                        <Badge variant={order.isPaid ? 'success' : 'warning'} className="mt-1">
-                          {order.isPaid ? order.paymentType : 'Pendente'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {!order.isPaid && (
+                            <Button
+                              variant="success"
+                              size="sm"
+                              icon={<DollarSign size={14} />}
+                              onClick={() => {
+                                setSelectedOrderForPayment(order);
+                                setPaymentType('Dinheiro');
+                              }}
+                            >
+                              Dar Baixa
+                            </Button>
+                          )}
+                          <Badge variant={order.isPaid ? 'success' : 'warning'}>
+                            {order.isPaid ? order.paymentType : 'Pendente'}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
 
@@ -183,6 +249,63 @@ const SalesHistory = () => {
             <p className="text-base font-medium">Selecione uma data acima para visualizar o histórico de vendas arquivadas</p>
           </div>
         </Card>
+      )}
+
+      {/* Dar Baixa de Pagamento Modal */}
+      {selectedOrderForPayment && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <DollarSign size={20} className="text-emerald-500" />
+                Dar Baixa de Pagamento
+              </h3>
+              <button
+                onClick={() => setSelectedOrderForPayment(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm space-y-1">
+              <p className="text-slate-500 dark:text-slate-400 text-xs">Comanda: <strong className="text-slate-900 dark:text-slate-100">#{selectedOrderForPayment.orderNumber}</strong></p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs">Cliente: <strong className="text-slate-900 dark:text-slate-100">{selectedOrderForPayment.customerName}</strong></p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs">Valor Total: <strong className="text-blue-600 dark:text-blue-400 font-bold">{formatCurrency(selectedOrderForPayment.totalAmount)}</strong></p>
+            </div>
+
+            <div>
+              <Select
+                label="Forma de Pagamento Recebida *"
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value as PaymentType)}
+              >
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Pix">Pix</option>
+                <option value="Débito">Débito</option>
+                <option value="Crédito">Crédito</option>
+              </Select>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => setSelectedOrderForPayment(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="success"
+                fullWidth
+                icon={<CheckCircle size={18} />}
+                onClick={handleConfirmPayment}
+              >
+                Confirmar Baixa
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
