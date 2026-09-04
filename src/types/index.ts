@@ -15,6 +15,7 @@ export interface OrderItem {
   price: number;
   description: string;
   unit: string;
+  deliveredQuantity?: number;
 }
 
 export type OrderStatus = 'Pendente' | 'Em preparo' | 'Pronto' | 'Entregue';
@@ -50,6 +51,7 @@ export interface OrderContextType {
   archivedOrders: Order[];
   addOrder: (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => string;
   updateOrderStatus: (id: string, status: OrderStatus) => void;
+  deliverOrderItem: (orderId: string, itemIndex: number, quantityToDeliver?: number) => void;
   updateArchivedOrderPayment: (id: string, isPaid: boolean, paymentType?: PaymentType) => void;
   getOrderById: (id: string) => Order | undefined;
   getOrdersByStatus: (status: OrderStatus) => Order[];

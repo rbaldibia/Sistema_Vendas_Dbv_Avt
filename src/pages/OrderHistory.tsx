@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Eye, X, Truck, CheckCircle } from 'lucide-react';
+import { Search, Eye, X, Truck, CheckCircle, Check } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -10,7 +10,7 @@ import { Order, OrderStatus } from '../types';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 
 const OrderHistory = () => {
-  const { orders, updateOrderStatus } = useOrderContext();
+  const { orders, updateOrderStatus, deliverOrderItem } = useOrderContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all' | 'allExceptDelivered'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -20,9 +20,32 @@ const OrderHistory = () => {
   const handleMarkAsDelivered = (orderId: string, orderNumber: number) => {
     updateOrderStatus(orderId, 'Entregue');
     if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder({ ...selectedOrder, status: 'Entregue' });
+      setSelectedOrder({
+        ...selectedOrder,
+        status: 'Entregue',
+        items: selectedOrder.items.map(i => ({ ...i, deliveredQuantity: i.quantity }))
+      });
     }
     setSuccessMessage(`Pedido #${orderNumber} marcado como Entregue com sucesso!`);
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+  };
+
+  const handleDeliverItem = (orderId: string, itemIndex: number) => {
+    deliverOrderItem(orderId, itemIndex);
+    if (selectedOrder && selectedOrder.id === orderId) {
+      const updatedItems = selectedOrder.items.map((it, idx) =>
+        idx === itemIndex ? { ...it, deliveredQuantity: it.quantity } : it
+      );
+      const allDelivered = updatedItems.every(it => (it.deliveredQuantity || 0) >= it.quantity);
+      setSelectedOrder({
+        ...selectedOrder,
+        items: updatedItems,
+        status: allDelivered ? 'Entregue' : selectedOrder.status
+      });
+    }
+    setSuccessMessage('Item entregue com sucesso!');
     setTimeout(() => {
       setSuccessMessage(null);
     }, 3000);
@@ -126,56 +149,68 @@ const OrderHistory = () => {
           <>
             {/* Mobile View: Cards Layout */}
             <div className="block md:hidden space-y-3">
-              {sortedOrders.map((order) => (
-                <div 
-                  key={order.id} 
-                  className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4 transition-colors"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Comanda</span>
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">#{order.orderNumber}</h3>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{order.customerName}</p>
+              {sortedOrders.map((order) => {
+                const totalQty = order.items.reduce((sum, i) => sum + i.quantity, 0);
+                const totalDelivered = order.items.reduce((sum, i) => sum + (i.deliveredQuantity || 0), 0);
+                const isPartial = totalDelivered > 0 && totalDelivered < totalQty;
+                return (
+                  <div 
+                    key={order.id} 
+                    className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4 transition-colors"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Comanda</span>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">#{order.orderNumber}</h3>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{order.customerName}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={getStatusBadgeVariant(order.status)}>
+                          {order.status}
+                        </Badge>
+                        {isPartial && (
+                          <span className="text-[10px] font-extrabold uppercase tracking-wide bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 px-2 py-0.5 rounded-full">
+                            Entrega Parcial ({totalDelivered}/{totalQty})
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant={getStatusBadgeVariant(order.status)}>
-                      {order.status}
-                    </Badge>
-                  </div>
-                  
-                  <div className="text-xs text-slate-500 dark:text-slate-400 my-2">
-                    {formatDateTime(order.createdAt)} • {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
-                  </div>
+                    
+                    <div className="text-xs text-slate-500 dark:text-slate-400 my-2">
+                      {formatDateTime(order.createdAt)} • {order.items.length} {order.items.length === 1 ? 'item' : 'itens'} {totalDelivered > 0 && `(${totalDelivered}/${totalQty} entregue(s))`}
+                    </div>
 
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700/60 mt-3">
-                    <div>
-                      <span className="text-xs text-slate-400 dark:text-slate-500 block">Total</span>
-                      <span className="font-bold text-base text-blue-600 dark:text-blue-400">
-                        {formatCurrency(order.totalAmount)}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {order.status === 'Pronto' && (
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700/60 mt-3">
+                      <div>
+                        <span className="text-xs text-slate-400 dark:text-slate-500 block">Total</span>
+                        <span className="font-bold text-base text-blue-600 dark:text-blue-400">
+                          {formatCurrency(order.totalAmount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {order.status === 'Pronto' && (
+                          <Button
+                            variant="info"
+                            size="sm"
+                            icon={<Truck size={16} />}
+                            onClick={() => handleMarkAsDelivered(order.id, order.orderNumber)}
+                          >
+                            Entregar
+                          </Button>
+                        )}
                         <Button
-                          variant="info"
+                          variant="secondary"
                           size="sm"
-                          icon={<Truck size={16} />}
-                          onClick={() => handleMarkAsDelivered(order.id, order.orderNumber)}
+                          icon={<Eye size={16} />}
+                          onClick={() => handleViewDetails(order)}
                         >
-                          Entregar
+                          Detalhes
                         </Button>
-                      )}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Eye size={16} />}
-                        onClick={() => handleViewDetails(order)}
-                      >
-                        Detalhes
-                      </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Desktop / Tablet View: Table Layout */}
@@ -207,28 +242,44 @@ const OrderHistory = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-800">
-                  {sortedOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-slate-100">
-                        #{order.orderNumber}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-slate-300 font-medium">
-                        {order.customerName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                        {formatDateTime(order.createdAt)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                        {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">
-                        {formatCurrency(order.totalAmount)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant={getStatusBadgeVariant(order.status)}>
-                          {order.status}
-                        </Badge>
-                      </td>
+                  {sortedOrders.map((order) => {
+                    const totalQty = order.items.reduce((sum, i) => sum + i.quantity, 0);
+                    const totalDelivered = order.items.reduce((sum, i) => sum + (i.deliveredQuantity || 0), 0);
+                    const isPartial = totalDelivered > 0 && totalDelivered < totalQty;
+                    return (
+                      <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-slate-100">
+                          #{order.orderNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-slate-300 font-medium">
+                          {order.customerName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                          {formatDateTime(order.createdAt)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                          {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
+                          {totalDelivered > 0 && (
+                            <span className="block text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                              {totalDelivered}/{totalQty} entregue(s)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">
+                          {formatCurrency(order.totalAmount)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-1 items-start">
+                            <Badge variant={getStatusBadgeVariant(order.status)}>
+                              {order.status}
+                            </Badge>
+                            {isPartial && (
+                              <span className="text-[10px] font-extrabold uppercase tracking-wide bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 px-2 py-0.5 rounded-full">
+                                Entrega Parcial
+                              </span>
+                            )}
+                          </div>
+                        </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
                           {order.status === 'Pronto' && (
@@ -252,8 +303,9 @@ const OrderHistory = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
+                  );
+                })}
+              </tbody>
               </table>
             </div>
           </>
@@ -315,19 +367,48 @@ const OrderHistory = () => {
                 </h4>
                 <div className="border border-slate-200 dark:border-slate-700/80 rounded-xl overflow-hidden">
                   <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                    {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="p-3 bg-white dark:bg-slate-900 flex justify-between items-center text-sm">
-                        <div>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{item.description}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {item.quantity}x {formatCurrency(item.price)} / {item.unit}
-                          </p>
+                    {selectedOrder.items.map((item, index) => {
+                      const delivered = item.deliveredQuantity || 0;
+                      const isFullyDelivered = delivered >= item.quantity;
+                      return (
+                        <div key={index} className="p-3 bg-white dark:bg-slate-900 flex justify-between items-center text-sm">
+                          <div className="flex-1 pr-3">
+                            <p className="font-semibold text-slate-900 dark:text-slate-100">{item.description}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {item.quantity}x {formatCurrency(item.price)} / {item.unit}
+                            </p>
+                            {delivered > 0 && (
+                              <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                Status: {delivered}/{item.quantity} entregue{delivered > 1 ? 's' : ''}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center space-x-3">
+                            <p className="font-bold text-slate-900 dark:text-slate-100">
+                              {formatCurrency(item.price * item.quantity)}
+                            </p>
+
+                            {selectedOrder.status !== 'Entregue' && (
+                              isFullyDelivered ? (
+                                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950 px-2 py-1 rounded-md flex items-center gap-1">
+                                  <Check size={12} /> Entregue
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeliverItem(selectedOrder.id, index)}
+                                  className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-300 dark:border-blue-800 px-2.5 py-1 rounded-md transition-all flex items-center gap-1 shadow-2xs"
+                                  title="Marcar este item como entregue"
+                                >
+                                  <Check size={12} />
+                                  <span>Entregar Item</span>
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
-                        <p className="font-bold text-slate-900 dark:text-slate-100">
-                          {formatCurrency(item.price * item.quantity)}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 

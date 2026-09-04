@@ -70,9 +70,46 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
   };
 
   const updateOrderStatus = (id: string, status: OrderStatus) => {
-    const newOrders = orders.map(order =>
-      order.id === id ? { ...order, status } : order
-    );
+    const newOrders = orders.map(order => {
+      if (order.id !== id) return order;
+      if (status === 'Entregue') {
+        const fullyDeliveredItems = order.items.map(item => ({
+          ...item,
+          deliveredQuantity: item.quantity
+        }));
+        return { ...order, status, items: fullyDeliveredItems };
+      }
+      return { ...order, status };
+    });
+    setOrders(newOrders);
+    localStorage.setItem('currentOrders', JSON.stringify(newOrders));
+  };
+
+  const deliverOrderItem = (orderId: string, itemIndex: number, quantityToDeliver?: number) => {
+    const newOrders = orders.map(order => {
+      if (order.id !== orderId) return order;
+
+      const updatedItems = order.items.map((item, idx) => {
+        if (idx !== itemIndex) return item;
+        const currentDelivered = item.deliveredQuantity || 0;
+        const remaining = item.quantity - currentDelivered;
+        const toAdd = quantityToDeliver !== undefined ? Math.min(quantityToDeliver, remaining) : remaining;
+        return {
+          ...item,
+          deliveredQuantity: currentDelivered + toAdd
+        };
+      });
+
+      const isFullyDelivered = updatedItems.every(item => (item.deliveredQuantity || 0) >= item.quantity);
+      const newStatus: OrderStatus = isFullyDelivered ? 'Entregue' : order.status;
+
+      return {
+        ...order,
+        items: updatedItems,
+        status: newStatus
+      };
+    });
+
     setOrders(newOrders);
     localStorage.setItem('currentOrders', JSON.stringify(newOrders));
   };
@@ -132,6 +169,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     archivedOrders,
     addOrder,
     updateOrderStatus,
+    deliverOrderItem,
     updateArchivedOrderPayment,
     getOrderById,
     getOrdersByStatus,

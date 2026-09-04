@@ -9,7 +9,7 @@ import { Order, OrderStatus } from '../types';
 import { formatDateTime } from '../utils/formatters';
 
 const Kitchen = () => {
-  const { orders, updateOrderStatus } = useOrderContext();
+  const { orders, updateOrderStatus, deliverOrderItem } = useOrderContext();
   const { items, toggleItemAvailability } = useItemContext();
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
@@ -258,70 +258,120 @@ const Kitchen = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {displayedOrders.map((order) => (
-            <div 
-              key={order.id} 
-              className={`border-2 rounded-xl overflow-hidden shadow-sm transition-colors flex flex-col justify-between ${getStatusColorClass(order.status)}`}
-            >
-              <div>
-                <div className="p-3.5 border-b border-slate-200/80 dark:border-slate-700/80 flex justify-between items-center bg-white/40 dark:bg-slate-900/40">
-                  <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Comanda</span>
-                    <h3 className="font-bold text-xl text-slate-900 dark:text-slate-100 leading-tight">#{order.orderNumber}</h3>
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">{order.customerName}</p>
-                  </div>
-                  <Badge 
-                    variant={
-                      order.status === 'Pendente' ? 'warning' : 
-                      order.status === 'Em preparo' ? 'info' : 
-                      order.status === 'Pronto' ? 'success' : 'secondary'
-                    }
-                    className="flex items-center space-x-1"
-                  >
-                    <span className="mr-1">{getStatusIcon(order.status)}</span>
-                    {order.status}
-                  </Badge>
-                </div>
-                
-                <div className="p-3.5">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex items-center space-x-1">
-                    <Clock size={14} />
-                    <span>{formatDateTime(order.createdAt)}</span>
+          {displayedOrders.map((order) => {
+            const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
+            const totalDelivered = order.items.reduce((sum, item) => sum + (item.deliveredQuantity || 0), 0);
+            const isPartialDelivery = totalDelivered > 0 && totalDelivered < totalQty;
+
+            return (
+              <div 
+                key={order.id} 
+                className={`border-2 rounded-xl overflow-hidden shadow-sm transition-colors flex flex-col justify-between ${getStatusColorClass(order.status)}`}
+              >
+                <div>
+                  <div className="p-3.5 border-b border-slate-200/80 dark:border-slate-700/80 flex justify-between items-start bg-white/40 dark:bg-slate-900/40">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Comanda</span>
+                      <h3 className="font-bold text-xl text-slate-900 dark:text-slate-100 leading-tight">#{order.orderNumber}</h3>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">{order.customerName}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge 
+                        variant={
+                          order.status === 'Pendente' ? 'warning' : 
+                          order.status === 'Em preparo' ? 'info' : 
+                          order.status === 'Pronto' ? 'success' : 'secondary'
+                        }
+                        className="flex items-center space-x-1"
+                      >
+                        <span className="mr-1">{getStatusIcon(order.status)}</span>
+                        {order.status}
+                      </Badge>
+                      {isPartialDelivery && (
+                        <span className="text-[10px] font-extrabold uppercase tracking-wide bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 px-2 py-0.5 rounded-full">
+                          Entrega Parcial ({totalDelivered}/{totalQty})
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
-                  <div className="border-t border-slate-200/60 dark:border-slate-700/60 pt-2.5 mb-4">
-                    <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-2">Itens Solicitados:</h4>
-                    <ul className="space-y-1.5">
-                      {order.items.map((item, index) => (
-                        <li key={index} className="flex justify-between text-sm bg-white/60 dark:bg-slate-900/60 p-2 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            <span className="text-blue-600 dark:text-blue-400 font-bold mr-1">{item.quantity}x</span> {item.description}
+                  <div className="p-3.5">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex items-center space-x-1">
+                      <Clock size={14} />
+                      <span>{formatDateTime(order.createdAt)}</span>
+                    </div>
+                    
+                    <div className="border-t border-slate-200/60 dark:border-slate-700/60 pt-2.5 mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Itens Solicitados:</h4>
+                        {totalDelivered > 0 && (
+                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                            {totalDelivered}/{totalQty} entregue(s)
                           </span>
-                          <span className="text-xs text-slate-500 dark:text-slate-400 self-center">({item.unit})</span>
-                        </li>
-                      ))}
-                    </ul>
+                        )}
+                      </div>
+                      <ul className="space-y-1.5">
+                        {order.items.map((item, index) => {
+                          const delivered = item.deliveredQuantity || 0;
+                          const isFullyDelivered = delivered >= item.quantity;
+                          return (
+                            <li key={index} className={`flex items-center justify-between text-xs p-2 rounded-lg border transition-colors ${
+                              isFullyDelivered
+                                ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300/60 dark:border-emerald-800/60'
+                                : 'bg-white/60 dark:bg-slate-900/60 border-slate-200/40 dark:border-slate-800/40'
+                            }`}>
+                              <div className="flex-1 pr-2">
+                                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                  <span className="text-blue-600 dark:text-blue-400 font-bold mr-1">{item.quantity}x</span> {item.description}
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-400 ml-1">({item.unit})</span>
+                                {delivered > 0 && (
+                                  <span className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                    {delivered}/{item.quantity} entregue{delivered > 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+
+                              {isFullyDelivered ? (
+                                <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                                  <Check size={12} /> Entregue
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => deliverOrderItem(order.id, index)}
+                                  className="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-300 dark:border-blue-800 px-2 py-1 rounded-md transition-all flex items-center gap-1 shrink-0 shadow-2xs"
+                                  title="Entregar este item"
+                                >
+                                  <Check size={12} />
+                                  <span>Entregar Item</span>
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3.5 pt-0">
+                  <div className="space-y-2">
+                    {getAvailableActions(order.status).map((action, index) => (
+                      <Button
+                        key={index}
+                        variant={action.variant as any}
+                        fullWidth
+                        size="md"
+                        onClick={() => handleUpdateStatus(order.id, action.newStatus, order.orderNumber)}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
                   </div>
                 </div>
               </div>
-
-              <div className="p-3.5 pt-0">
-                <div className="space-y-2">
-                  {getAvailableActions(order.status).map((action, index) => (
-                    <Button
-                      key={index}
-                      variant={action.variant as any}
-                      fullWidth
-                      size="md"
-                      onClick={() => handleUpdateStatus(order.id, action.newStatus, order.orderNumber)}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
