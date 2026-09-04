@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Item, ItemContextType } from '../types';
+import { db, isFirebaseConfigured } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 const ItemContext = createContext<ItemContextType | undefined>(undefined);
 
@@ -31,9 +33,52 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
     }
   });
 
-  const saveItems = (newItems: Item[]) => {
-    setItems(newItems);
-    localStorage.setItem('registeredItems', JSON.stringify(newItems));
+  // Real-time Firestore sync
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+
+    const itemsRef = collection(db, 'items');
+    const unsubscribe = onSnapshot(
+      itemsRef,
+      (snapshot) => {
+        const fetchedItems: Item[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as Item;
+          fetchedItems.push({
+            ...data,
+            id: docSnap.id,
+            available: data.available ?? true,
+          });
+        });
+        setItems(fetchedItems);
+        localStorage.setItem('registeredItems', JSON.stringify(fetchedItems));
+      },
+      (error) => {
+        console.warn('Firestore items sync error:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const saveItemsLocalAndRemote = async (
+    updatedItems: Item[],
+    targetItem?: { item: Item; action: 'set' | 'delete' }
+  ) => {
+    setItems(updatedItems);
+    localStorage.setItem('registeredItems', JSON.stringify(updatedItems));
+
+    if (isFirebaseConfigured && targetItem) {
+      try {
+        if (targetItem.action === 'set') {
+          await setDoc(doc(db, 'items', targetItem.item.id), targetItem.item);
+        } else if (targetItem.action === 'delete') {
+          await deleteDoc(doc(db, 'items', targetItem.item.id));
+        }
+      } catch (err) {
+        console.error('Failed to sync item with Firestore:', err);
+      }
+    }
   };
 
   const addItem = (item: Omit<Item, 'id'>) => {
@@ -42,37 +87,50 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
       id: uuidv4(),
       available: item.available ?? true,
     };
-    saveItems([...items, newItem]);
+    const updated = [...items, newItem];
+    saveItemsLocalAndRemote(updated, { item: newItem, action: 'set' });
     return newItem.id;
   };
 
   const updateItem = (id: string, updatedItem: Omit<Item, 'id'>) => {
-    const newItems = items.map((item) =>
-      item.id === id
-        ? { ...updatedItem, id, available: updatedItem.available ?? item.available ?? true }
-        : item
-    );
-    saveItems(newItems);
+    const existing = items.find((i) => i.id === id);
+    const itemToSave: Item = {
+      ...updatedItem,
+      id,
+      available: updatedItem.available ?? existing?.available ?? true,
+    };
+    const newItems = items.map((item) => (item.id === id ? itemToSave : item));
+    saveItemsLocalAndRemote(newItems, { item: itemToSave, action: 'set' });
   };
 
   const deleteItem = (id: string) => {
-    saveItems(items.filter((item) => item.id !== id));
+    const itemToDelete = items.find((i) => i.id === id);
+    const newItems = items.filter((item) => item.id !== id);
+    if (itemToDelete) {
+      saveItemsLocalAndRemote(newItems, { item: itemToDelete, action: 'delete' });
+    } else {
+      setItems(newItems);
+      localStorage.setItem('registeredItems', JSON.stringify(newItems));
+    }
   };
 
   const toggleItemAvailability = (id: string) => {
-    const newItems = items.map((item) =>
-      item.id === id
-        ? { ...item, available: item.available === undefined ? false : !item.available }
-        : item
-    );
-    saveItems(newItems);
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
+    const updatedItem: Item = {
+      ...target,
+      available: target.available === undefined ? false : !target.available,
+    };
+    const newItems = items.map((item) => (item.id === id ? updatedItem : item));
+    saveItemsLocalAndRemote(newItems, { item: updatedItem, action: 'set' });
   };
 
   const setItemAvailability = (id: string, available: boolean) => {
-    const newItems = items.map((item) =>
-      item.id === id ? { ...item, available } : item
-    );
-    saveItems(newItems);
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
+    const updatedItem: Item = { ...target, available };
+    const newItems = items.map((item) => (item.id === id ? updatedItem : item));
+    saveItemsLocalAndRemote(newItems, { item: updatedItem, action: 'set' });
   };
 
   const getItemById = (id: string) => {

@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { InventoryItem, InventoryContextType } from '../types';
 import { useItemContext } from './ItemContext';
+import { db, isFirebaseConfigured } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 
@@ -17,80 +19,155 @@ interface InventoryProviderProps {
 }
 
 export const InventoryProvider = ({ children }: InventoryProviderProps) => {
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    const saved = localStorage.getItem('registeredInventory');
+    if (!saved) return [];
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return [];
+    }
+  });
+
   const { items } = useItemContext();
+
+  // Firestore real-time listener for inventory
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+
+    const inventoryRef = collection(db, 'inventory');
+    const unsubscribe = onSnapshot(
+      inventoryRef,
+      (snapshot) => {
+        const fetchedInventory: InventoryItem[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as InventoryItem;
+          fetchedInventory.push({
+            itemId: docSnap.id || data.itemId,
+            quantity: data.quantity ?? 0,
+          });
+        });
+        setInventory(fetchedInventory);
+        localStorage.setItem('registeredInventory', JSON.stringify(fetchedInventory));
+      },
+      (error) => {
+        console.warn('Firestore inventory sync error:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   // Initialize inventory for new items
   useEffect(() => {
     const newInventoryItems: InventoryItem[] = [];
-    
-    items.forEach(item => {
-      if (!inventory.some(invItem => invItem.itemId === item.id)) {
+
+    items.forEach((item) => {
+      if (!inventory.some((invItem) => invItem.itemId === item.id)) {
         newInventoryItems.push({
           itemId: item.id,
-          quantity: 0
+          quantity: 0,
         });
       }
     });
-    
+
     if (newInventoryItems.length > 0) {
-      setInventory([...inventory, ...newInventoryItems]);
+      const updated = [...inventory, ...newInventoryItems];
+      setInventory(updated);
+      localStorage.setItem('registeredInventory', JSON.stringify(updated));
+
+      if (isFirebaseConfigured) {
+        newInventoryItems.forEach(async (newItem) => {
+          try {
+            await setDoc(doc(db, 'inventory', newItem.itemId), newItem);
+          } catch (err) {
+            console.error('Failed to init inventory item in Firestore:', err);
+          }
+        });
+      }
     }
   }, [items]);
-  
-  const updateInventory = (itemId: string, quantity: number) => {
-    const existingIndex = inventory.findIndex(item => item.itemId === itemId);
-    
-    if (existingIndex >= 0) {
-      const updatedInventory = [...inventory];
-      updatedInventory[existingIndex].quantity = quantity;
-      setInventory(updatedInventory);
-    } else {
-      setInventory([...inventory, { itemId, quantity }]);
+
+  const saveInventoryItemRemote = async (item: InventoryItem) => {
+    if (isFirebaseConfigured) {
+      try {
+        await setDoc(doc(db, 'inventory', item.itemId), item);
+      } catch (err) {
+        console.error('Failed to sync inventory to Firestore:', err);
+      }
     }
   };
-  
+
+  const updateInventory = (itemId: string, quantity: number) => {
+    const existingIndex = inventory.findIndex((item) => item.itemId === itemId);
+    let updatedInventory: InventoryItem[];
+    const itemToSave = { itemId, quantity };
+
+    if (existingIndex >= 0) {
+      updatedInventory = [...inventory];
+      updatedInventory[existingIndex].quantity = quantity;
+    } else {
+      updatedInventory = [...inventory, itemToSave];
+    }
+
+    setInventory(updatedInventory);
+    localStorage.setItem('registeredInventory', JSON.stringify(updatedInventory));
+    saveInventoryItemRemote(itemToSave);
+  };
+
   const getInventoryByItemId = (itemId: string): number => {
-    const item = inventory.find(item => item.itemId === itemId);
+    const item = inventory.find((item) => item.itemId === itemId);
     return item ? item.quantity : 0;
   };
-  
+
   const checkStockAvailability = (itemId: string, quantity: number): boolean => {
     const currentStock = getInventoryByItemId(itemId);
     return currentStock >= quantity;
   };
-  
-  const reduceStock = (items: { itemId: string, quantity: number }[]): boolean => {
-    // First check if all items have enough stock
-    const hasEnoughStock = items.every(item => 
+
+  const reduceStock = (stockItems: { itemId: string; quantity: number }[]): boolean => {
+    const hasEnoughStock = stockItems.every((item) =>
       checkStockAvailability(item.itemId, item.quantity)
     );
-    
+
     if (!hasEnoughStock) {
       return false;
     }
-    
-    // If all have enough stock, reduce the quantities
+
     const updatedInventory = [...inventory];
-    
-    items.forEach(({ itemId, quantity }) => {
-      const index = updatedInventory.findIndex(item => item.itemId === itemId);
+    const itemsToUpdateRemote: InventoryItem[] = [];
+
+    stockItems.forEach(({ itemId, quantity }) => {
+      const index = updatedInventory.findIndex((item) => item.itemId === itemId);
       if (index >= 0) {
         updatedInventory[index].quantity -= quantity;
+        itemsToUpdateRemote.push(updatedInventory[index]);
       }
     });
-    
+
     setInventory(updatedInventory);
+    localStorage.setItem('registeredInventory', JSON.stringify(updatedInventory));
+
+    if (isFirebaseConfigured) {
+      itemsToUpdateRemote.forEach(async (invItem) => {
+        try {
+          await setDoc(doc(db, 'inventory', invItem.itemId), invItem);
+        } catch (err) {
+          console.error('Failed to sync reduced stock to Firestore:', err);
+        }
+      });
+    }
+
     return true;
   };
-  
+
   const value = {
     inventory,
     updateInventory,
     getInventoryByItemId,
     checkStockAvailability,
-    reduceStock
+    reduceStock,
   };
-  
+
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;
 };
