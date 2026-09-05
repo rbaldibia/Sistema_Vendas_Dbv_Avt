@@ -21,6 +21,7 @@ const Sales = () => {
   const [orderSuccessMessage, setOrderSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showSubmitConfirmModal, setShowSubmitConfirmModal] = useState(false);
   
   // Mobile tab state: 'products' or 'cart'
   const [mobileTab, setMobileTab] = useState<'products' | 'cart'>('products');
@@ -120,6 +121,23 @@ const Sales = () => {
       return;
     }
 
+    if (paymentStatus === 'partial') {
+      const parsedPartial = parseFloat(partialPaidAmount.replace(',', '.'));
+      if (isNaN(parsedPartial) || parsedPartial <= 0) {
+        setErrorMessage('Informe um valor válido para o pagamento parcial.');
+        return;
+      }
+    }
+
+    if ((paymentStatus === 'full' || paymentStatus === 'partial') && !paymentType) {
+      setErrorMessage('Selecione a forma de pagamento.');
+      return;
+    }
+
+    setShowSubmitConfirmModal(true);
+  };
+
+  const confirmSubmitOrder = () => {
     let finalPaidAmount = 0;
     let finalIsPaid = false;
 
@@ -128,22 +146,15 @@ const Sales = () => {
       finalPaidAmount = totalAmount;
     } else if (paymentStatus === 'partial') {
       const parsedPartial = parseFloat(partialPaidAmount.replace(',', '.'));
-      if (isNaN(parsedPartial) || parsedPartial <= 0) {
-        setErrorMessage('Informe um valor válido para o pagamento parcial.');
-        return;
+      if (!isNaN(parsedPartial) && parsedPartial > 0) {
+        if (parsedPartial >= totalAmount) {
+          finalIsPaid = true;
+          finalPaidAmount = totalAmount;
+        } else {
+          finalIsPaid = false;
+          finalPaidAmount = parsedPartial;
+        }
       }
-      if (parsedPartial >= totalAmount) {
-        finalIsPaid = true;
-        finalPaidAmount = totalAmount;
-      } else {
-        finalIsPaid = false;
-        finalPaidAmount = parsedPartial;
-      }
-    }
-
-    if ((paymentStatus === 'full' || paymentStatus === 'partial') && !paymentType) {
-      setErrorMessage('Selecione a forma de pagamento.');
-      return;
     }
 
     try {
@@ -163,11 +174,13 @@ const Sales = () => {
       setPaymentStatus('unpaid');
       setPartialPaidAmount('');
       setPaymentType('Dinheiro');
+      setShowSubmitConfirmModal(false);
       setOrderSuccessMessage(`Pedido #${nextOrderNumber} enviado para a cozinha com sucesso!`);
       
       // On mobile, switch back to products view after order
       setMobileTab('products');
     } catch (error) {
+      setShowSubmitConfirmModal(false);
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
@@ -495,6 +508,52 @@ const Sales = () => {
           </Card>
         </div>
       </div>
+
+      {/* Submit Order Confirmation Modal */}
+      {showSubmitConfirmModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl space-y-4">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <ChefHat size={22} className="text-blue-500" />
+              Confirmar Envio do Pedido?
+            </h2>
+            
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm space-y-1.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400">Comanda: <strong className="text-slate-900 dark:text-slate-100 font-bold">#{getNextOrderNumber()}</strong></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Cliente: <strong className="text-slate-900 dark:text-slate-100">{customerName}</strong></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Itens: <strong className="text-slate-900 dark:text-slate-100">{totalQuantity} item(ns)</strong></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Valor Total: <strong className="text-blue-600 dark:text-blue-400 font-bold">{formatCurrency(totalAmount)}</strong></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Pagamento: <strong className="text-slate-900 dark:text-slate-100">
+                  {paymentStatus === 'full' ? `Pago (${paymentType})` : paymentStatus === 'partial' ? `Parcial: ${formatCurrency(parseFloat(partialPaidAmount.replace(',', '.')) || 0)} (${paymentType})` : 'Pendente'}
+                </strong>
+              </p>
+            </div>
+
+            <p className="text-slate-600 dark:text-slate-300 text-xs">
+              Tem certeza que deseja enviar este pedido para a cozinha?
+            </p>
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => setShowSubmitConfirmModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                fullWidth
+                icon={<ChefHat size={18} />}
+                onClick={confirmSubmitOrder}
+              >
+                Confirmar Envio
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Archive Modal */}
       {showArchiveModal && (

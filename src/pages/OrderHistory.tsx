@@ -16,6 +16,13 @@ const OrderHistory = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [confirmModalData, setConfirmModalData] = useState<{
+    title: string;
+    message: string;
+    actionLabel: string;
+    variant: 'primary' | 'success' | 'info' | 'warning' | 'secondary';
+    onConfirm: () => void;
+  } | null>(null);
 
   const handleMarkAsDelivered = (orderId: string, orderNumber: number) => {
     updateOrderStatus(orderId, 'Entregue');
@@ -197,7 +204,13 @@ const OrderHistory = () => {
                             variant="info"
                             size="sm"
                             icon={<Truck size={16} />}
-                            onClick={() => handleMarkAsDelivered(order.id, order.orderNumber)}
+                            onClick={() => setConfirmModalData({
+                              title: "Confirmar Entrega do Pedido?",
+                              message: `Deseja marcar o pedido #${order.orderNumber} (${order.customerName}) como Entregue?`,
+                              actionLabel: "Confirmar Entrega",
+                              variant: "info",
+                              onConfirm: () => handleMarkAsDelivered(order.id, order.orderNumber)
+                            })}
                           >
                             Entregar
                           </Button>
@@ -291,7 +304,13 @@ const OrderHistory = () => {
                               variant="info"
                               size="sm"
                               icon={<Truck size={16} />}
-                              onClick={() => handleMarkAsDelivered(order.id, order.orderNumber)}
+                              onClick={() => setConfirmModalData({
+                                title: "Confirmar Entrega do Pedido?",
+                                message: `Deseja marcar o pedido #${order.orderNumber} (${order.customerName}) como Entregue?`,
+                                actionLabel: "Confirmar Entrega",
+                                variant: "info",
+                                onConfirm: () => handleMarkAsDelivered(order.id, order.orderNumber)
+                              })}
                             >
                               Entregar
                             </Button>
@@ -420,7 +439,13 @@ const OrderHistory = () => {
                               ) : (
                                 <div className="flex items-center gap-1">
                                   <button
-                                    onClick={() => handleDeliverItem(selectedOrder.id, index, 1)}
+                                    onClick={() => setConfirmModalData({
+                                      title: "Confirmar Entrega de Item?",
+                                      message: `Deseja registrar a entrega de ${item.quantity > 1 ? '1 unidade de ' : ''}"${item.description}" do pedido #${selectedOrder.orderNumber}?`,
+                                      actionLabel: "Confirmar Entrega",
+                                      variant: "info",
+                                      onConfirm: () => handleDeliverItem(selectedOrder.id, index, 1)
+                                    })}
                                     className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-300 dark:border-blue-800 px-2.5 py-1 rounded-md transition-all flex items-center gap-1 shadow-2xs"
                                     title={item.quantity > 1 ? "Entregar 1 unidade deste item" : "Marcar este item como entregue"}
                                   >
@@ -429,7 +454,13 @@ const OrderHistory = () => {
                                   </button>
                                   {item.quantity > 1 && (item.quantity - delivered) > 1 && (
                                     <button
-                                      onClick={() => handleDeliverItem(selectedOrder.id, index)}
+                                      onClick={() => setConfirmModalData({
+                                        title: "Confirmar Entrega Total do Item?",
+                                        message: `Deseja registrar a entrega de TODAS as unidades restantes (${item.quantity - delivered}) de "${item.description}" do pedido #${selectedOrder.orderNumber}?`,
+                                        actionLabel: "Entregar Todas",
+                                        variant: "info",
+                                        onConfirm: () => handleDeliverItem(selectedOrder.id, index)
+                                      })}
                                       className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:underline px-1 py-0.5"
                                       title="Entregar todas as unidades restantes deste item"
                                     >
@@ -460,7 +491,13 @@ const OrderHistory = () => {
                 <Button
                   variant="info"
                   icon={<Truck size={16} />}
-                  onClick={() => handleMarkAsDelivered(selectedOrder.id, selectedOrder.orderNumber)}
+                  onClick={() => setConfirmModalData({
+                    title: "Confirmar Entrega do Pedido?",
+                    message: `Deseja marcar o pedido #${selectedOrder.orderNumber} (${selectedOrder.customerName}) como Entregue?`,
+                    actionLabel: "Confirmar Entrega",
+                    variant: "info",
+                    onConfirm: () => handleMarkAsDelivered(selectedOrder.id, selectedOrder.orderNumber)
+                  })}
                 >
                   Entregar
                 </Button>
@@ -470,6 +507,40 @@ const OrderHistory = () => {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModalData && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl space-y-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Truck size={20} className="text-blue-500" />
+              {confirmModalData.title}
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 text-sm">
+              {confirmModalData.message}
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => setConfirmModalData(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant={confirmModalData.variant}
+                fullWidth
+                onClick={() => {
+                  confirmModalData.onConfirm();
+                  setConfirmModalData(null);
+                }}
+              >
+                {confirmModalData.actionLabel}
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
     </div>

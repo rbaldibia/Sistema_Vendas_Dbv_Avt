@@ -15,6 +15,13 @@ const Kitchen = () => {
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
   const [showItemAvailability, setShowItemAvailability] = useState(false);
+  const [confirmModalData, setConfirmModalData] = useState<{
+    title: string;
+    message: string;
+    actionLabel: string;
+    variant: 'primary' | 'success' | 'info' | 'warning' | 'secondary';
+    onConfirm: () => void;
+  } | null>(null);
   
   // Filter out delivered orders and sort by creation date (oldest first)
   useEffect(() => {
@@ -331,11 +338,6 @@ const Kitchen = () => {
                                     <span><strong>Obs:</strong> {item.observation}</span>
                                   </div>
                                 )}
-                                {delivered > 0 && (
-                                  <span className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                                    {delivered}/{item.quantity} entregue{delivered > 1 ? 's' : ''}
-                                  </span>
-                                )}
                               </div>
 
                               {isFullyDelivered ? (
@@ -345,7 +347,13 @@ const Kitchen = () => {
                               ) : (
                                 <div className="flex items-center gap-1 shrink-0">
                                   <button
-                                    onClick={() => deliverOrderItem(order.id, index, 1)}
+                                    onClick={() => setConfirmModalData({
+                                      title: "Confirmar Entrega de Item?",
+                                      message: `Deseja registrar a entrega de ${item.quantity > 1 ? '1 unidade de ' : ''}"${item.description}" da comanda #${order.orderNumber}?`,
+                                      actionLabel: "Confirmar Entrega",
+                                      variant: "info",
+                                      onConfirm: () => deliverOrderItem(order.id, index, 1)
+                                    })}
                                     className="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-300 dark:border-blue-800 px-2 py-1 rounded-md transition-all flex items-center gap-1 shadow-2xs"
                                     title={item.quantity > 1 ? "Entregar 1 unidade deste item" : "Entregar este item"}
                                   >
@@ -354,7 +362,13 @@ const Kitchen = () => {
                                   </button>
                                   {item.quantity > 1 && (item.quantity - delivered) > 1 && (
                                     <button
-                                      onClick={() => deliverOrderItem(order.id, index)}
+                                      onClick={() => setConfirmModalData({
+                                        title: "Confirmar Entrega Total do Item?",
+                                        message: `Deseja registrar a entrega de TODAS as unidades restantes (${item.quantity - delivered}) de "${item.description}" da comanda #${order.orderNumber}?`,
+                                        actionLabel: "Entregar Todas",
+                                        variant: "info",
+                                        onConfirm: () => deliverOrderItem(order.id, index)
+                                      })}
                                       className="text-[10px] font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:underline px-1 py-0.5"
                                       title="Entregar todas as unidades restantes deste item"
                                     >
@@ -379,7 +393,13 @@ const Kitchen = () => {
                         variant={action.variant as any}
                         fullWidth
                         size="md"
-                        onClick={() => handleUpdateStatus(order.id, action.newStatus, order.orderNumber)}
+                        onClick={() => setConfirmModalData({
+                          title: `Confirmar: ${action.label}?`,
+                          message: `Deseja alterar o status da comanda #${order.orderNumber} (${order.customerName}) para "${action.newStatus}"?`,
+                          actionLabel: action.label,
+                          variant: action.variant as any,
+                          onConfirm: () => handleUpdateStatus(order.id, action.newStatus, order.orderNumber)
+                        })}
                       >
                         {action.label}
                       </Button>
@@ -389,6 +409,40 @@ const Kitchen = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModalData && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl space-y-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <AlertCircle size={20} className="text-amber-500" />
+              {confirmModalData.title}
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 text-sm">
+              {confirmModalData.message}
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => setConfirmModalData(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant={confirmModalData.variant}
+                fullWidth
+                onClick={() => {
+                  confirmModalData.onConfirm();
+                  setConfirmModalData(null);
+                }}
+              >
+                {confirmModalData.actionLabel}
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
     </div>
