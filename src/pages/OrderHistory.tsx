@@ -349,14 +349,27 @@ const OrderHistory = () => {
                 <div>
                   <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase">Pagamento</p>
                   <div className="mt-1 flex items-center space-x-1.5 flex-wrap">
-                    <Badge variant={selectedOrder.isPaid ? 'success' : 'warning'}>
-                      {selectedOrder.isPaid ? 'Pago' : 'Pendente'}
-                    </Badge>
-                    {selectedOrder.isPaid && selectedOrder.paymentType && (
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                        via {selectedOrder.paymentType}
-                      </span>
-                    )}
+                    {(() => {
+                      const currentPaid = selectedOrder.paidAmount ?? (selectedOrder.isPaid ? selectedOrder.totalAmount : 0);
+                      const isPartialPayment = !selectedOrder.isPaid && currentPaid > 0;
+                      return (
+                        <>
+                          <Badge variant={selectedOrder.isPaid ? 'success' : isPartialPayment ? 'warning' : 'warning'}>
+                            {selectedOrder.isPaid ? 'Pago' : isPartialPayment ? `Parcial: ${formatCurrency(currentPaid)}` : 'Pendente'}
+                          </Badge>
+                          {selectedOrder.paymentType && (
+                            <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                              via {selectedOrder.paymentType}
+                            </span>
+                          )}
+                          {isPartialPayment && (
+                            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 block w-full mt-1">
+                              Restante: {formatCurrency(Math.max(0, selectedOrder.totalAmount - currentPaid))}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

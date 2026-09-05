@@ -26,6 +26,11 @@ const parseOrderDate = (orderData: any): Date => {
   return new Date(orderData.createdAt);
 };
 
+const normalizePaidAmount = (data: any): number => {
+  if (typeof data.paidAmount === 'number') return data.paidAmount;
+  return data.isPaid ? (data.totalAmount || 0) : 0;
+};
+
 export const OrderProvider = ({ children }: OrderProviderProps) => {
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('currentOrders');
@@ -35,6 +40,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
       return parsed.map((order: any) => ({
         ...order,
         createdAt: parseOrderDate(order),
+        paidAmount: normalizePaidAmount(order),
         originallyPaid: order.originallyPaid ?? order.isPaid,
       }));
     } catch {
@@ -50,6 +56,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
       return parsed.map((order: any) => ({
         ...order,
         createdAt: parseOrderDate(order),
+        paidAmount: normalizePaidAmount(order),
         originallyPaid: order.originallyPaid ?? order.isPaid,
       }));
     } catch {
@@ -72,6 +79,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
             ...(data as Order),
             id: docSnap.id,
             createdAt: parseOrderDate(data),
+            paidAmount: normalizePaidAmount(data),
             originallyPaid: data.originallyPaid ?? data.isPaid,
           });
         });
@@ -103,6 +111,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
             ...(data as Order),
             id: docSnap.id,
             createdAt: parseOrderDate(data),
+            paidAmount: normalizePaidAmount(data),
             originallyPaid: data.originallyPaid ?? data.isPaid,
           });
         });
@@ -131,12 +140,17 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
   });
 
   const addOrder = (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>): string => {
+    const calculatedPaidAmount = order.paidAmount ?? (order.isPaid ? order.totalAmount : 0);
+    const effectiveIsPaid = order.isPaid || calculatedPaidAmount >= order.totalAmount;
+
     const newOrder: Order = {
       ...order,
       id: uuidv4(),
       orderNumber: getNextOrderNumber(),
       createdAt: new Date(),
-      originallyPaid: order.originallyPaid ?? order.isPaid,
+      isPaid: effectiveIsPaid,
+      paidAmount: calculatedPaidAmount,
+      originallyPaid: order.originallyPaid ?? effectiveIsPaid,
     };
 
     const newOrders = [...orders, newOrder];
@@ -221,16 +235,25 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     }
   };
 
-  const updateArchivedOrderPayment = (id: string, isPaid: boolean, paymentType?: PaymentType) => {
+  const updateArchivedOrderPayment = (
+    id: string,
+    isPaid: boolean,
+    paymentType?: PaymentType,
+    paidAmount?: number
+  ) => {
     let updatedOrder: Order | undefined;
 
     const updated = archivedOrders.map((order) => {
       if (order.id === id) {
+        const newPaidAmount = paidAmount !== undefined ? paidAmount : (isPaid ? order.totalAmount : (order.paidAmount || 0));
+        const effectiveIsPaid = isPaid || newPaidAmount >= order.totalAmount;
+
         updatedOrder = {
           ...order,
-          isPaid,
+          isPaid: effectiveIsPaid,
+          paidAmount: newPaidAmount,
           paymentType: paymentType ?? order.paymentType,
-          originallyPaid: order.originallyPaid ?? order.isPaid,
+          originallyPaid: order.originallyPaid ?? effectiveIsPaid,
         };
         return updatedOrder;
       }
@@ -265,6 +288,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     const preparedToArchive = ordersToArchive.map((o) => ({
       ...o,
       originallyPaid: o.originallyPaid ?? o.isPaid,
+      paidAmount: o.paidAmount ?? (o.isPaid ? o.totalAmount : 0),
     }));
     const updated = [...archivedOrders, ...preparedToArchive];
     setArchivedOrders(updated);

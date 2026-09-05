@@ -33,6 +33,7 @@ export interface Order {
   isPaid: boolean;
   paymentType?: PaymentType;
   originallyPaid?: boolean;
+  paidAmount?: number;
 }
 
 // Context types
@@ -53,7 +54,7 @@ export interface OrderContextType {
   addOrder: (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => string;
   updateOrderStatus: (id: string, status: OrderStatus) => void;
   deliverOrderItem: (orderId: string, itemIndex: number, quantityToDeliver?: number) => void;
-  updateArchivedOrderPayment: (id: string, isPaid: boolean, paymentType?: PaymentType) => void;
+  updateArchivedOrderPayment: (id: string, isPaid: boolean, paymentType?: PaymentType, paidAmount?: number) => void;
   getOrderById: (id: string) => Order | undefined;
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getOrdersByDateRange: (startDate: Date, endDate: Date) => Order[];

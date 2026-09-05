@@ -15,7 +15,8 @@ const Sales = () => {
   
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [customerName, setCustomerName] = useState('');
-  const [isPaid, setIsPaid] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'unpaid' | 'full' | 'partial'>('unpaid');
+  const [partialPaidAmount, setPartialPaidAmount] = useState<string>('');
   const [paymentType, setPaymentType] = useState<PaymentType>('Dinheiro');
   const [orderSuccessMessage, setOrderSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -119,8 +120,29 @@ const Sales = () => {
       return;
     }
 
-    if (isPaid && !paymentType) {
-      setErrorMessage('Selecione o tipo de pagamento.');
+    let finalPaidAmount = 0;
+    let finalIsPaid = false;
+
+    if (paymentStatus === 'full') {
+      finalIsPaid = true;
+      finalPaidAmount = totalAmount;
+    } else if (paymentStatus === 'partial') {
+      const parsedPartial = parseFloat(partialPaidAmount.replace(',', '.'));
+      if (isNaN(parsedPartial) || parsedPartial <= 0) {
+        setErrorMessage('Informe um valor válido para o pagamento parcial.');
+        return;
+      }
+      if (parsedPartial >= totalAmount) {
+        finalIsPaid = true;
+        finalPaidAmount = totalAmount;
+      } else {
+        finalIsPaid = false;
+        finalPaidAmount = parsedPartial;
+      }
+    }
+
+    if ((paymentStatus === 'full' || paymentStatus === 'partial') && !paymentType) {
+      setErrorMessage('Selecione a forma de pagamento.');
       return;
     }
 
@@ -131,13 +153,15 @@ const Sales = () => {
         status: 'Pendente',
         totalAmount,
         customerName: customerName.trim(),
-        isPaid,
-        paymentType: isPaid ? paymentType : undefined
+        isPaid: finalIsPaid,
+        paidAmount: finalPaidAmount,
+        paymentType: (paymentStatus === 'full' || paymentStatus === 'partial') ? paymentType : undefined
       });
 
       setOrderItems([]);
       setCustomerName('');
-      setIsPaid(false);
+      setPaymentStatus('unpaid');
+      setPartialPaidAmount('');
       setPaymentType('Dinheiro');
       setOrderSuccessMessage(`Pedido #${nextOrderNumber} enviado para a cozinha com sucesso!`);
       
@@ -330,15 +354,42 @@ const Sales = () => {
             <div className="mb-3">
               <Select
                 label="Status do Pagamento"
-                value={isPaid ? "true" : "false"}
-                onChange={(e) => setIsPaid(e.target.value === "true")}
+                value={paymentStatus}
+                onChange={(e) => {
+                  const status = e.target.value as 'unpaid' | 'full' | 'partial';
+                  setPaymentStatus(status);
+                  if (status === 'partial' && !partialPaidAmount && totalAmount > 0) {
+                    setPartialPaidAmount('');
+                  }
+                }}
               >
-                <option value="false">Pendente (Não Pago)</option>
-                <option value="true">Pago</option>
+                <option value="unpaid">Pendente (Não Pago)</option>
+                <option value="full">Pago Total</option>
+                <option value="partial">Pago Parcial</option>
               </Select>
             </div>
 
-            {isPaid && (
+            {paymentStatus === 'partial' && (
+              <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-2">
+                <Input
+                  label="Valor Pago Agora (R$) *"
+                  type="text"
+                  placeholder="0,00"
+                  value={partialPaidAmount}
+                  onChange={(e) => setPartialPaidAmount(e.target.value)}
+                />
+                {totalAmount > 0 && (
+                  <div className="text-xs flex justify-between font-medium">
+                    <span className="text-slate-600 dark:text-slate-400">Saldo Restante Devedor:</span>
+                    <span className="text-amber-700 dark:text-amber-400 font-bold">
+                      {formatCurrency(Math.max(0, totalAmount - (parseFloat(partialPaidAmount.replace(',', '.')) || 0)))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(paymentStatus === 'full' || paymentStatus === 'partial') && (
               <div className="mb-4">
                 <Select
                   label="Forma de Pagamento"

@@ -4,6 +4,7 @@ import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { formatCurrency } from '../utils/formatters';
 import { Order, PaymentType } from '../types';
@@ -15,6 +16,9 @@ const SalesHistory = () => {
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'unpaid'>('all');
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<Order | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType>('Dinheiro');
+  const [paymentMode, setPaymentMode] = useState<'full' | 'partial'>('full');
+  const [partialPaymentInput, setPartialPaymentInput] = useState<string>('');
+  const [modalError, setModalError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const availableDates = useMemo(() => {
@@ -65,12 +69,44 @@ const SalesHistory = () => {
     return stats;
   }, [ordersOnSelectedDate]);
 
+  const handleOpenPaymentModal = (order: Order) => {
+    setSelectedOrderForPayment(order);
+    setPaymentType(order.paymentType || 'Dinheiro');
+    setPaymentMode('full');
+    setPartialPaymentInput('');
+    setModalError(null);
+  };
+
   const handleConfirmPayment = () => {
     if (!selectedOrderForPayment) return;
 
-    updateArchivedOrderPayment(selectedOrderForPayment.id, true, paymentType);
-    setSuccessMessage(`Baixa dada com sucesso para a comanda #${selectedOrderForPayment.orderNumber} (${paymentType})!`);
-    setSelectedOrderForPayment(null);
+    const currentPaid = selectedOrderForPayment.paidAmount ?? (selectedOrderForPayment.isPaid ? selectedOrderForPayment.totalAmount : 0);
+    const remaining = Math.max(0, selectedOrderForPayment.totalAmount - currentPaid);
+
+    if (paymentMode === 'full') {
+      const newPaidAmount = selectedOrderForPayment.totalAmount;
+      updateArchivedOrderPayment(selectedOrderForPayment.id, true, paymentType, newPaidAmount);
+      setSuccessMessage(`Baixa total dada com sucesso para a comanda #${selectedOrderForPayment.orderNumber} (${paymentType})!`);
+      setSelectedOrderForPayment(null);
+    } else {
+      const parsedAmount = parseFloat(partialPaymentInput.replace(',', '.'));
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        setModalError('Informe um valor válido para o pagamento parcial.');
+        return;
+      }
+
+      if (parsedAmount > remaining) {
+        setModalError(`O valor digitado (${formatCurrency(parsedAmount)}) é maior que o saldo restante (${formatCurrency(remaining)}).`);
+        return;
+      }
+
+      const newPaidAmount = currentPaid + parsedAmount;
+      const isFullyPaid = newPaidAmount >= selectedOrderForPayment.totalAmount;
+
+      updateArchivedOrderPayment(selectedOrderForPayment.id, isFullyPaid, paymentType, newPaidAmount);
+      setSuccessMessage(`Pagamento parcial de ${formatCurrency(parsedAmount)} registrado para a comanda #${selectedOrderForPayment.orderNumber} (${paymentType})!`);
+      setSelectedOrderForPayment(null);
+    }
 
     setTimeout(() => {
       setSuccessMessage(null);
@@ -98,33 +134,32 @@ const SalesHistory = () => {
         <div className="relative max-w-xs flex-1">
           <button
             onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-            className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 flex items-center justify-between shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+            className="w-full flex items-center justify-between px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl shadow-xs text-slate-900 dark:text-slate-100 font-medium text-sm hover:border-slate-400 dark:hover:border-slate-600 transition-colors"
           >
-            <span className="flex items-center gap-2 text-sm font-medium">
+            <span className="flex items-center gap-2">
               <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
               {selectedDate ? formatDateBR(selectedDate) : 'Selecione uma data'}
             </span>
-            <ChevronDown size={18} className={`transition-transform duration-200 text-slate-400 ${isCalendarOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={16} className={`text-slate-400 transition-transform ${isCalendarOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {isCalendarOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-20 max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
+            <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-20 overflow-hidden py-1 max-h-60 overflow-y-auto">
               {availableDates.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                  Nenhuma data com vendas arquivadas
-                </div>
+                <div className="p-3 text-xs text-slate-500 dark:text-slate-400 text-center">Nenhum ciclo arquivado</div>
               ) : (
                 availableDates.map(date => (
                   <button
                     key={date}
                     onClick={() => handleSelectDate(date)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-blue-50 dark:hover:bg-slate-700 ${
-                      selectedDate === date 
-                        ? 'bg-blue-100 dark:bg-slate-700 font-bold text-blue-700 dark:text-blue-300' 
-                        : 'text-slate-700 dark:text-slate-300'
+                    className={`w-full text-left px-3.5 py-2 text-sm transition-colors flex items-center justify-between ${
+                      selectedDate === date
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                     }`}
                   >
-                    {formatDateBR(date)}
+                    <span>{formatDateBR(date)}</span>
+                    {selectedDate === date && <CheckCircle size={14} className="text-blue-600 dark:text-blue-400" />}
                   </button>
                 ))
               )}
@@ -192,58 +227,70 @@ const SalesHistory = () => {
               </div>
             ) : (
               <div className="space-y-3.5">
-                {displayedOrders.map(order => (
-                  <div key={order.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <p className="font-bold text-base text-slate-900 dark:text-slate-100">Comanda #{order.orderNumber}</p>
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{order.customerName}</p>
-                      </div>
-                      <div className="text-right flex flex-col items-end gap-1">
-                        <p className="font-bold text-blue-600 dark:text-blue-400 text-base">{formatCurrency(order.totalAmount)}</p>
-                        <div className="flex items-center gap-2">
-                          {!order.isPaid && (
-                            <Button
-                              variant="success"
-                              size="sm"
-                              icon={<DollarSign size={14} />}
-                              onClick={() => {
-                                setSelectedOrderForPayment(order);
-                                setPaymentType('Dinheiro');
-                              }}
-                            >
-                              Dar Baixa
-                            </Button>
+                {displayedOrders.map(order => {
+                  const currentPaid = order.paidAmount ?? (order.isPaid ? order.totalAmount : 0);
+                  const remaining = Math.max(0, order.totalAmount - currentPaid);
+                  const isPartial = !order.isPaid && currentPaid > 0;
+
+                  return (
+                    <div key={order.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="font-bold text-base text-slate-900 dark:text-slate-100">Comanda #{order.orderNumber}</p>
+                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{order.customerName}</p>
+                        </div>
+                        <div className="text-right flex flex-col items-end gap-1">
+                          <p className="font-bold text-blue-600 dark:text-blue-400 text-base">{formatCurrency(order.totalAmount)}</p>
+                          {isPartial && (
+                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                              Pago: {formatCurrency(currentPaid)} | Restante: {formatCurrency(remaining)}
+                            </p>
                           )}
-                          <Badge variant={order.isPaid ? 'success' : 'warning'}>
-                            {order.isPaid ? order.paymentType : 'Pendente'}
-                          </Badge>
+                          <div className="flex items-center gap-2 mt-1">
+                            {!order.isPaid && (
+                              <Button
+                                variant="success"
+                                size="sm"
+                                icon={<DollarSign size={14} />}
+                                onClick={() => handleOpenPaymentModal(order)}
+                              >
+                                Dar Baixa
+                              </Button>
+                            )}
+                            <Badge variant={order.isPaid ? 'success' : isPartial ? 'warning' : 'warning'}>
+                              {order.isPaid
+                                ? order.paymentType || 'Pago'
+                                : isPartial
+                                ? `Parcial: ${formatCurrency(currentPaid)}`
+                                : 'Pendente'}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="border-t border-slate-200/80 dark:border-slate-700/60 pt-2.5">
-                      <ul className="space-y-1.5">
-                        {order.items.map((item, idx) => (
-                          <li key={idx} className="text-xs text-slate-600 dark:text-slate-300">
-                            <div className="flex justify-between items-start">
-                              <span>
-                                <strong className="text-slate-900 dark:text-slate-100">{item.quantity}x</strong> {item.description}
-                              </span>
-                              <span className="font-medium">{formatCurrency(item.price * item.quantity)}</span>
-                            </div>
-                            {item.observation && item.observation.trim() && (
-                              <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded mt-0.5 inline-flex items-center gap-1">
-                                <MessageSquare size={11} className="shrink-0" />
-                                <span><strong>Obs:</strong> {item.observation}</span>
-                              </p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="border-t border-slate-200/80 dark:border-slate-700/60 pt-2.5">
+                        <ul className="space-y-1.5">
+                          {order.items.map((item, idx) => (
+                            <li key={idx} className="text-xs text-slate-600 dark:text-slate-300">
+                              <div className="flex justify-between items-start">
+                                <span>
+                                  <strong className="text-slate-900 dark:text-slate-100">{item.quantity}x</strong> {item.description}
+                                </span>
+                                <span className="font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                              </div>
+                              {item.observation && item.observation.trim() && (
+                                <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded mt-0.5 inline-flex items-center gap-1">
+                                  <MessageSquare size={11} className="shrink-0" />
+                                  <span><strong>Obs:</strong> {item.observation}</span>
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -260,61 +307,109 @@ const SalesHistory = () => {
       )}
 
       {/* Dar Baixa de Pagamento Modal */}
-      {selectedOrderForPayment && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <DollarSign size={20} className="text-emerald-500" />
-                Dar Baixa de Pagamento
-              </h3>
-              <button
-                onClick={() => setSelectedOrderForPayment(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {selectedOrderForPayment && (() => {
+        const currentPaid = selectedOrderForPayment.paidAmount ?? (selectedOrderForPayment.isPaid ? selectedOrderForPayment.totalAmount : 0);
+        const remaining = Math.max(0, selectedOrderForPayment.totalAmount - currentPaid);
 
-            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm space-y-1">
-              <p className="text-slate-500 dark:text-slate-400 text-xs">Comanda: <strong className="text-slate-900 dark:text-slate-100">#{selectedOrderForPayment.orderNumber}</strong></p>
-              <p className="text-slate-500 dark:text-slate-400 text-xs">Cliente: <strong className="text-slate-900 dark:text-slate-100">{selectedOrderForPayment.customerName}</strong></p>
-              <p className="text-slate-500 dark:text-slate-400 text-xs">Valor Total: <strong className="text-blue-600 dark:text-blue-400 font-bold">{formatCurrency(selectedOrderForPayment.totalAmount)}</strong></p>
-            </div>
+        return (
+          <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <DollarSign size={20} className="text-emerald-500" />
+                  Dar Baixa de Pagamento
+                </h3>
+                <button
+                  onClick={() => setSelectedOrderForPayment(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
-            <div>
-              <Select
-                label="Forma de Pagamento Recebida *"
-                value={paymentType}
-                onChange={(e) => setPaymentType(e.target.value as PaymentType)}
-              >
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Pix">Pix</option>
-                <option value="Débito">Débito</option>
-                <option value="Crédito">Crédito</option>
-              </Select>
-            </div>
+              {modalError && (
+                <div className="p-3 text-xs bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg">
+                  {modalError}
+                </div>
+              )}
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="secondary"
-                fullWidth
-                onClick={() => setSelectedOrderForPayment(null)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="success"
-                fullWidth
-                icon={<CheckCircle size={18} />}
-                onClick={handleConfirmPayment}
-              >
-                Confirmar Baixa
-              </Button>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm space-y-1">
+                <p className="text-slate-500 dark:border-slate-400 text-xs">Comanda: <strong className="text-slate-900 dark:text-slate-100">#{selectedOrderForPayment.orderNumber}</strong></p>
+                <p className="text-slate-500 dark:border-slate-400 text-xs">Cliente: <strong className="text-slate-900 dark:text-slate-100">{selectedOrderForPayment.customerName}</strong></p>
+                <div className="flex justify-between text-xs pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <span className="text-slate-500 dark:text-slate-400">Valor Total: <strong className="text-slate-900 dark:text-slate-100">{formatCurrency(selectedOrderForPayment.totalAmount)}</strong></span>
+                  <span className="text-slate-500 dark:text-slate-400">Já Pago: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(currentPaid)}</strong></span>
+                </div>
+                <p className="text-xs pt-1">
+                  Saldo Restante: <strong className="text-blue-600 dark:text-blue-400 font-bold">{formatCurrency(remaining)}</strong>
+                </p>
+              </div>
+
+              <div>
+                <Select
+                  label="Tipo de Baixa"
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value as 'full' | 'partial')}
+                >
+                  <option value="full">Quitar Totalidade ({formatCurrency(remaining)})</option>
+                  <option value="partial">Pagamento Parcial</option>
+                </Select>
+              </div>
+
+              {paymentMode === 'partial' && (
+                <div>
+                  <Input
+                    label="Valor a Pagar Agora (R$) *"
+                    type="text"
+                    placeholder="0,00"
+                    value={partialPaymentInput}
+                    onChange={(e) => {
+                      setPartialPaymentInput(e.target.value);
+                      setModalError(null);
+                    }}
+                  />
+                  {partialPaymentInput && !isNaN(parseFloat(partialPaymentInput.replace(',', '.'))) && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Novo Saldo Restante: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency(Math.max(0, remaining - (parseFloat(partialPaymentInput.replace(',', '.')) || 0)))}</strong>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <Select
+                  label="Forma de Pagamento Recebida *"
+                  value={paymentType}
+                  onChange={(e) => setPaymentType(e.target.value as PaymentType)}
+                >
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Débito">Débito</option>
+                  <option value="Crédito">Crédito</option>
+                </Select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => setSelectedOrderForPayment(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="success"
+                  fullWidth
+                  icon={<CheckCircle size={18} />}
+                  onClick={handleConfirmPayment}
+                >
+                  Confirmar Baixa
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
