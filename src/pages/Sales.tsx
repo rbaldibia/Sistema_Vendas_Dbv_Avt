@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ChefHat, ShoppingBag, Archive, ShoppingCart, Package, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, ChefHat, ShoppingBag, Archive, ShoppingCart, Package, RefreshCw, AlertTriangle, MessageSquare } from 'lucide-react';
 import { useItemContext } from '../contexts/ItemContext';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
@@ -82,6 +82,16 @@ const Sales = () => {
       orderItems.map(item => 
         item.itemId === itemId 
           ? { ...item, quantity: newQuantity } 
+          : item
+      )
+    );
+  };
+
+  const handleObservationChange = (index: number, observation: string) => {
+    setOrderItems(
+      orderItems.map((item, i) => 
+        i === index 
+          ? { ...item, observation } 
           : item
       )
     );
@@ -392,7 +402,19 @@ const Sales = () => {
                           </button>
                         </div>
                       </div>
-                      <p className="text-right mt-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <div className="mt-2">
+                        <div className="relative flex items-center">
+                          <MessageSquare size={13} className="absolute left-2.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Obs: Ex: sem ketchup, sem leite em pó..."
+                            value={item.observation || ''}
+                            onChange={(e) => handleObservationChange(index, e.target.value)}
+                            className="w-full pl-8 pr-3 py-1 text-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-right mt-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
                         Subtotal: {formatCurrency(item.price * item.quantity)}
                       </p>
                     </li>

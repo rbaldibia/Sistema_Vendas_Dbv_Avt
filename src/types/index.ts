@@ -16,6 +16,7 @@ export interface OrderItem {
   description: string;
   unit: string;
   deliveredQuantity?: number;
+  observation?: string;
 }
 
 export type OrderStatus = 'Pendente' | 'Em preparo' | 'Pronto' | 'Entregue';

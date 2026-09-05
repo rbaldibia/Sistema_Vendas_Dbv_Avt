@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar, ChevronDown, DollarSign, CheckCircle, Filter, X } from 'lucide-react';
+import { Calendar, ChevronDown, DollarSign, CheckCircle, Filter, X, MessageSquare } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -223,13 +223,21 @@ const SalesHistory = () => {
                     </div>
 
                     <div className="border-t border-slate-200/80 dark:border-slate-700/60 pt-2.5">
-                      <ul className="space-y-1">
+                      <ul className="space-y-1.5">
                         {order.items.map((item, idx) => (
-                          <li key={idx} className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
-                            <span>
-                              <strong className="text-slate-900 dark:text-slate-100">{item.quantity}x</strong> {item.description}
-                            </span>
-                            <span className="font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                          <li key={idx} className="text-xs text-slate-600 dark:text-slate-300">
+                            <div className="flex justify-between items-start">
+                              <span>
+                                <strong className="text-slate-900 dark:text-slate-100">{item.quantity}x</strong> {item.description}
+                              </span>
+                              <span className="font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                            </div>
+                            {item.observation && item.observation.trim() && (
+                              <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded mt-0.5 inline-flex items-center gap-1">
+                                <MessageSquare size={11} className="shrink-0" />
+                                <span><strong>Obs:</strong> {item.observation}</span>
+                              </p>
+                            )}
                           </li>
                         ))}
                       </ul>

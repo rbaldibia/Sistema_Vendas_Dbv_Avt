@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Eye, X, Truck, CheckCircle, Check } from 'lucide-react';
+import { Search, Eye, X, Truck, CheckCircle, Check, MessageSquare } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -377,6 +377,12 @@ const OrderHistory = () => {
                             <p className="text-xs text-slate-500 dark:text-slate-400">
                               {item.quantity}x {formatCurrency(item.price)} / {item.unit}
                             </p>
+                            {item.observation && item.observation.trim() && (
+                              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 px-2 py-0.5 rounded-md mt-1 inline-flex items-center gap-1">
+                                <MessageSquare size={12} className="shrink-0" />
+                                <span><strong>Obs:</strong> {item.observation}</span>
+                              </p>
+                            )}
                             {delivered > 0 && (
                               <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                                 Status: {delivered}/{item.quantity} entregue{delivered > 1 ? 's' : ''}

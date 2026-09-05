@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle, CookingPot, Package, Truck, Filter, AlertCircle, Check, X } from 'lucide-react';
+import { Clock, CheckCircle, CookingPot, Package, Truck, Filter, AlertCircle, Check, X, MessageSquare } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import { useItemContext } from '../contexts/ItemContext';
 import Card from '../components/ui/Card';
@@ -325,6 +325,12 @@ const Kitchen = () => {
                                   <span className="text-blue-600 dark:text-blue-400 font-bold mr-1">{item.quantity}x</span> {item.description}
                                 </span>
                                 <span className="text-slate-500 dark:text-slate-400 ml-1">({item.unit})</span>
+                                {item.observation && item.observation.trim() && (
+                                  <div className="mt-1 px-2 py-1 bg-amber-100/90 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700/80 rounded-md text-[11px] font-medium text-amber-900 dark:text-amber-200 flex items-start gap-1">
+                                    <MessageSquare size={13} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                    <span><strong>Obs:</strong> {item.observation}</span>
+                                  </div>
+                                )}
                                 {delivered > 0 && (
                                   <span className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                                     {delivered}/{item.quantity} entregue{delivered > 1 ? 's' : ''}
