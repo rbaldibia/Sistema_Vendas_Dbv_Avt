@@ -62,3 +62,16 @@ export interface OrderContextType {
   clearOrders: () => void;
   getArchivedOrdersByDateRange: (startDate: Date, endDate: Date) => Order[];
 }
+
+export interface InventoryItem {
+  itemId: string;
+  quantity: number;
+}
+
+export interface InventoryContextType {
+  inventory: InventoryItem[];
+  updateInventory: (itemId: string, quantity: number) => void;
+  getInventoryByItemId: (itemId: string) => number;
+  checkStockAvailability: (itemId: string, quantity: number) => boolean;
+  reduceStock: (stockItems: { itemId: string; quantity: number }[]) => boolean;
+}

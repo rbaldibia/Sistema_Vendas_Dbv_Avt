@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, RefreshCcw } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 import { useItemContext } from '../contexts/ItemContext';
 import { useInventoryContext } from '../contexts/InventoryContext';
 import Card from '../components/ui/Card';
@@ -10,7 +10,7 @@ import { formatCurrency } from '../utils/formatters';
 
 const Inventory = () => {
   const { items } = useItemContext();
-  const { inventory, updateInventory, getInventoryByItemId } = useInventoryContext();
+  const { updateInventory, getInventoryByItemId } = useInventoryContext();
   
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [updateSuccess, setUpdateSuccess] = useState<Record<string, boolean>>({});
