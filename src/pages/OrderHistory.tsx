@@ -32,12 +32,16 @@ const OrderHistory = () => {
     }, 3000);
   };
 
-  const handleDeliverItem = (orderId: string, itemIndex: number) => {
-    deliverOrderItem(orderId, itemIndex);
+  const handleDeliverItem = (orderId: string, itemIndex: number, quantityToDeliver?: number) => {
+    deliverOrderItem(orderId, itemIndex, quantityToDeliver);
     if (selectedOrder && selectedOrder.id === orderId) {
-      const updatedItems = selectedOrder.items.map((it, idx) =>
-        idx === itemIndex ? { ...it, deliveredQuantity: it.quantity } : it
-      );
+      const updatedItems = selectedOrder.items.map((it, idx) => {
+        if (idx !== itemIndex) return it;
+        const currentDelivered = it.deliveredQuantity || 0;
+        const remaining = it.quantity - currentDelivered;
+        const toAdd = quantityToDeliver !== undefined ? Math.min(quantityToDeliver, remaining) : remaining;
+        return { ...it, deliveredQuantity: currentDelivered + toAdd };
+      });
       const allDelivered = updatedItems.every(it => (it.deliveredQuantity || 0) >= it.quantity);
       setSelectedOrder({
         ...selectedOrder,
@@ -414,14 +418,25 @@ const OrderHistory = () => {
                                   <Check size={12} /> Entregue
                                 </span>
                               ) : (
-                                <button
-                                  onClick={() => handleDeliverItem(selectedOrder.id, index)}
-                                  className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-300 dark:border-blue-800 px-2.5 py-1 rounded-md transition-all flex items-center gap-1 shadow-2xs"
-                                  title="Marcar este item como entregue"
-                                >
-                                  <Check size={12} />
-                                  <span>Entregar Item</span>
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleDeliverItem(selectedOrder.id, index, 1)}
+                                    className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-300 dark:border-blue-800 px-2.5 py-1 rounded-md transition-all flex items-center gap-1 shadow-2xs"
+                                    title={item.quantity > 1 ? "Entregar 1 unidade deste item" : "Marcar este item como entregue"}
+                                  >
+                                    <Check size={12} />
+                                    <span>{item.quantity > 1 ? "+1 entregue" : "Entregar Item"}</span>
+                                  </button>
+                                  {item.quantity > 1 && (item.quantity - delivered) > 1 && (
+                                    <button
+                                      onClick={() => handleDeliverItem(selectedOrder.id, index)}
+                                      className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:underline px-1 py-0.5"
+                                      title="Entregar todas as unidades restantes deste item"
+                                    >
+                                      (Todas)
+                                    </button>
+                                  )}
+                                </div>
                               )
                             )}
                           </div>
