@@ -328,6 +328,18 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     }
   };
 
+  const deleteOrder = (id: string) => {
+    const updatedOrders = orders.filter((order) => order.id !== id);
+    setOrders(updatedOrders);
+    localStorage.setItem('currentOrders', JSON.stringify(updatedOrders));
+
+    if (isFirebaseConfigured) {
+      deleteDoc(doc(db, 'orders', id)).catch((err) =>
+        console.error('Failed to delete order from Firestore:', err)
+      );
+    }
+  };
+
   const getArchivedOrdersByDateRange = (startDate: Date, endDate: Date) => {
     return archivedOrders.filter(
       (order) => order.createdAt >= startDate && order.createdAt <= endDate
@@ -347,6 +359,7 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     getNextOrderNumber,
     archiveOrders,
     clearOrders,
+    deleteOrder,
     getArchivedOrdersByDateRange,
   };
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Eye, X, Truck, CheckCircle, Check, MessageSquare } from 'lucide-react';
+import { Search, Eye, X, Truck, CheckCircle, Check, MessageSquare, Trash2 } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -10,7 +10,7 @@ import { Order, OrderStatus } from '../types';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 
 const OrderHistory = () => {
-  const { orders, updateOrderStatus, deliverOrderItem } = useOrderContext();
+  const { orders, updateOrderStatus, deliverOrderItem, deleteOrder } = useOrderContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all' | 'allExceptDelivered'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -20,7 +20,7 @@ const OrderHistory = () => {
     title: string;
     message: string;
     actionLabel: string;
-    variant: 'primary' | 'success' | 'info' | 'warning' | 'secondary';
+    variant: 'primary' | 'success' | 'info' | 'warning' | 'danger' | 'secondary';
     onConfirm: () => void;
   } | null>(null);
 
@@ -34,6 +34,18 @@ const OrderHistory = () => {
       });
     }
     setSuccessMessage(`Pedido #${orderNumber} marcado como Entregue com sucesso!`);
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+  };
+
+  const handleDeleteOrder = (orderId: string, orderNumber: number) => {
+    deleteOrder(orderId);
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setShowOrderDetails(false);
+      setSelectedOrder(null);
+    }
+    setSuccessMessage(`Pedido #${orderNumber} excluído com sucesso!`);
     setTimeout(() => {
       setSuccessMessage(null);
     }, 3000);
@@ -223,6 +235,21 @@ const OrderHistory = () => {
                         >
                           Detalhes
                         </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<Trash2 size={16} />}
+                          onClick={() => setConfirmModalData({
+                            title: `Excluir Pedido #${order.orderNumber}?`,
+                            message: `Tem certeza que deseja excluir permanentemente o pedido #${order.orderNumber} (${order.customerName})? Esta ação não poderá ser desfeita.`,
+                            actionLabel: "Excluir Pedido",
+                            variant: "danger",
+                            onConfirm: () => handleDeleteOrder(order.id, order.orderNumber)
+                          })}
+                          title="Excluir pedido"
+                        >
+                          Excluir
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -322,6 +349,21 @@ const OrderHistory = () => {
                             onClick={() => handleViewDetails(order)}
                           >
                             Detalhes
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            icon={<Trash2 size={16} />}
+                            onClick={() => setConfirmModalData({
+                              title: `Excluir Pedido #${order.orderNumber}?`,
+                              message: `Tem certeza que deseja excluir permanentemente o pedido #${order.orderNumber} (${order.customerName})? Esta ação não poderá ser desfeita.`,
+                              actionLabel: "Excluir Pedido",
+                              variant: "danger",
+                              onConfirm: () => handleDeleteOrder(order.id, order.orderNumber)
+                            })}
+                            title="Excluir pedido"
+                          >
+                            Excluir
                           </Button>
                         </div>
                       </td>
@@ -502,6 +544,19 @@ const OrderHistory = () => {
                   Entregar
                 </Button>
               )}
+              <Button
+                variant="danger"
+                icon={<Trash2 size={16} />}
+                onClick={() => setConfirmModalData({
+                  title: `Excluir Pedido #${selectedOrder.orderNumber}?`,
+                  message: `Tem certeza que deseja excluir permanentemente o pedido #${selectedOrder.orderNumber} (${selectedOrder.customerName})? Esta ação não poderá ser desfeita.`,
+                  actionLabel: "Excluir Pedido",
+                  variant: "danger",
+                  onConfirm: () => handleDeleteOrder(selectedOrder.id, selectedOrder.orderNumber)
+                })}
+              >
+                Excluir
+              </Button>
               <Button variant="secondary" onClick={closeOrderDetails}>
                 Fechar
               </Button>

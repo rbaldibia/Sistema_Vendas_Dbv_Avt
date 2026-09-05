@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle, CookingPot, Package, Truck, Filter, AlertCircle, Check, X, MessageSquare } from 'lucide-react';
+import { Clock, CheckCircle, CookingPot, Package, Truck, Filter, AlertCircle, Check, X, MessageSquare, Trash2 } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import { useItemContext } from '../contexts/ItemContext';
 import Card from '../components/ui/Card';
@@ -9,7 +9,7 @@ import { Order, OrderStatus } from '../types';
 import { formatDateTime } from '../utils/formatters';
 
 const Kitchen = () => {
-  const { orders, updateOrderStatus, deliverOrderItem } = useOrderContext();
+  const { orders, updateOrderStatus, deliverOrderItem, deleteOrder } = useOrderContext();
   const { items, toggleItemAvailability } = useItemContext();
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
@@ -19,9 +19,17 @@ const Kitchen = () => {
     title: string;
     message: string;
     actionLabel: string;
-    variant: 'primary' | 'success' | 'info' | 'warning' | 'secondary';
+    variant: 'primary' | 'success' | 'info' | 'warning' | 'danger' | 'secondary';
     onConfirm: () => void;
   } | null>(null);
+
+  const handleDeleteOrder = (orderId: string, orderNumber: number) => {
+    deleteOrder(orderId);
+    setStatusUpdateSuccess(`Pedido #${orderNumber} excluído com sucesso!`);
+    setTimeout(() => {
+      setStatusUpdateSuccess(null);
+    }, 3000);
+  };
   
   // Filter out delivered orders and sort by creation date (oldest first)
   useEffect(() => {
@@ -278,7 +286,22 @@ const Kitchen = () => {
                 <div>
                   <div className="p-3.5 border-b border-slate-200/80 dark:border-slate-700/80 flex justify-between items-start bg-white/40 dark:bg-slate-900/40">
                     <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Comanda</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Comanda</span>
+                        <button
+                          onClick={() => setConfirmModalData({
+                            title: `Excluir Pedido #${order.orderNumber}?`,
+                            message: `Tem certeza que deseja excluir permanentemente o pedido #${order.orderNumber} (${order.customerName})? Esta ação não poderá ser desfeita.`,
+                            actionLabel: "Excluir Pedido",
+                            variant: "danger",
+                            onConfirm: () => handleDeleteOrder(order.id, order.orderNumber)
+                          })}
+                          className="p-0.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          title="Excluir pedido"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                       <h3 className="font-bold text-xl text-slate-900 dark:text-slate-100 leading-tight">#{order.orderNumber}</h3>
                       <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">{order.customerName}</p>
                     </div>

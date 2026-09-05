@@ -61,6 +61,7 @@ export interface OrderContextType {
   getNextOrderNumber: () => number;
   archiveOrders: (orders: Order[]) => void;
   clearOrders: () => void;
+  deleteOrder: (id: string) => void;
   getArchivedOrdersByDateRange: (startDate: Date, endDate: Date) => Order[];
 }
 
