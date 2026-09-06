@@ -134,10 +134,34 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     return maxOrderNumber + 1;
   };
 
-  const serializeOrderForFirestore = (order: Order) => ({
+const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
+  if (obj === null || typeof obj !== 'object') return obj;
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+
+  const cleaned: any = {};
+  Object.keys(obj).forEach((key) => {
+    const val = obj[key];
+    if (val !== undefined) {
+      cleaned[key] =
+        val !== null && typeof val === 'object' && !(val instanceof Date)
+          ? sanitizeForFirestore(val)
+          : val;
+    }
+  });
+
+  return cleaned;
+};
+
+const serializeOrderForFirestore = (order: Order) => {
+  const serialized = {
     ...order,
     createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
-  });
+  };
+  return sanitizeForFirestore(serialized);
+};
 
   const addOrder = (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>): string => {
     const calculatedPaidAmount = order.paidAmount ?? (order.isPaid ? order.totalAmount : 0);
