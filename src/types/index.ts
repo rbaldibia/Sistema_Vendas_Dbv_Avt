@@ -6,6 +6,7 @@ export interface Item {
   unit: string;
   price: number;
   available?: boolean;
+  forSale?: boolean;
 }
 
 // Order related types
@@ -44,6 +45,8 @@ export interface ItemContextType {
   deleteItem: (id: string) => void;
   toggleItemAvailability: (id: string) => void;
   setItemAvailability: (id: string, available: boolean) => void;
+  toggleItemForSale: (id: string) => void;
+  setItemForSale: (id: string, forSale: boolean) => void;
   getItemById: (id: string) => Item | undefined;
   getItemByCode: (code: string) => Item | undefined;
 }

@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Edit, Trash2, Plus, Package } from 'lucide-react';
+import { Edit, Trash2, Plus, Package, ShoppingBag } from 'lucide-react';
 import { useItemContext } from '../contexts/ItemContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -7,7 +7,7 @@ import Input from '../components/ui/Input';
 import { formatCurrency } from '../utils/formatters';
 
 const ItemRegistration = () => {
-  const { items, addItem, updateItem, deleteItem, getItemByCode } = useItemContext();
+  const { items, addItem, updateItem, deleteItem, toggleItemForSale, getItemByCode } = useItemContext();
   
   const [formData, setFormData] = useState({
     code: '',
@@ -238,11 +238,31 @@ const ItemRegistration = () => {
                         {item.code}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400">({item.unit})</span>
+                      {item.forSale ? (
+                        <span className="text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800">
+                          Liberado p/ Venda
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full border border-slate-300 dark:border-slate-700">
+                          Não Liberado
+                        </span>
+                      )}
                     </div>
                     <h3 className="font-semibold text-slate-900 dark:text-slate-100 mt-1">{item.description}</h3>
                     <p className="text-sm font-bold text-blue-600 dark:text-blue-400 mt-0.5">{formatCurrency(item.price)}</p>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-1 sm:space-x-2">
+                    <button
+                      onClick={() => toggleItemForSale(item.id)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        item.forSale
+                          ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-slate-800'
+                          : 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                      title={item.forSale ? 'Bloquear para Venda' : 'Liberar para Venda'}
+                    >
+                      <ShoppingBag size={18} />
+                    </button>
                     <button
                       onClick={() => handleEdit(item.id)}
                       className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -279,6 +299,9 @@ const ItemRegistration = () => {
                     <th scope="col" className="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Valor
                     </th>
+                    <th scope="col" className="px-6 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                      Status Venda
+                    </th>
                     <th scope="col" className="px-6 py-3.5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       Ações
                     </th>
@@ -299,7 +322,29 @@ const ItemRegistration = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">
                         {formatCurrency(item.price)}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {item.forSale ? (
+                          <span className="inline-flex items-center text-xs font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-300 dark:border-emerald-800">
+                            Liberado para Venda
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-700">
+                            Não Liberado
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => toggleItemForSale(item.id)}
+                          className={`mr-3 transition-colors ${
+                            item.forSale
+                              ? 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300'
+                              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                          }`}
+                          title={item.forSale ? 'Bloquear para Venda' : 'Liberar para Venda'}
+                        >
+                          <ShoppingBag size={18} />
+                        </button>
                         <button
                           onClick={() => handleEdit(item.id)}
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mr-3 transition-colors"

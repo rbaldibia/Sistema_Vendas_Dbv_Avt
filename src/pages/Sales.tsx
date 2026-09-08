@@ -13,6 +13,8 @@ const Sales = () => {
   const { items, toggleItemAvailability } = useItemContext();
   const { orders, addOrder, getNextOrderNumber, archiveOrders, clearOrders } = useOrderContext();
   
+  const salesItems = items.filter((item) => item.forSale === true);
+  
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'unpaid' | 'full' | 'partial'>('unpaid');
@@ -236,7 +238,7 @@ const Sales = () => {
           }`}
         >
           <Package size={18} />
-          <span>Produtos ({items.length})</span>
+          <span>Produtos ({salesItems.length})</span>
         </button>
         <button
           onClick={() => setMobileTab('cart')}
@@ -254,15 +256,15 @@ const Sales = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Available items */}
         <div className={`lg:col-span-2 ${mobileTab === 'products' ? 'block' : 'hidden lg:block'}`}>
-          <Card title="Itens Cadastrados">
-            {items.length === 0 ? (
+          <Card title="Produtos Liberados para Venda">
+            {salesItems.length === 0 ? (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 <Package size={40} className="mx-auto mb-2 text-slate-400 dark:text-slate-600" />
-                <p>Nenhum item cadastrado. Cadastre itens no menu "Cadastro de Itens".</p>
+                <p>Nenhum item liberado para venda. Libere itens para venda na tela "Cadastro de Itens".</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {items.map((item) => {
+                {salesItems.map((item) => {
                   const isAvailable = item.available !== false;
                   const inCart = orderItems.find(oi => oi.itemId === item.id);
                   return (

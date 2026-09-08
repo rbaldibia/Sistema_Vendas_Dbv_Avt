@@ -27,6 +27,7 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
       return parsed.map((item) => ({
         ...item,
         available: item.available ?? true,
+        forSale: item.forSale ?? false,
       }));
     } catch {
       return [];
@@ -48,6 +49,7 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
             ...data,
             id: docSnap.id,
             available: data.available ?? true,
+            forSale: data.forSale ?? false,
           });
         });
         setItems(fetchedItems);
@@ -86,6 +88,7 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
       ...item,
       id: uuidv4(),
       available: item.available ?? true,
+      forSale: item.forSale ?? false,
     };
     const updated = [...items, newItem];
     saveItemsLocalAndRemote(updated, { item: newItem, action: 'set' });
@@ -98,6 +101,7 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
       ...updatedItem,
       id,
       available: updatedItem.available ?? existing?.available ?? true,
+      forSale: updatedItem.forSale ?? existing?.forSale ?? false,
     };
     const newItems = items.map((item) => (item.id === id ? itemToSave : item));
     saveItemsLocalAndRemote(newItems, { item: itemToSave, action: 'set' });
@@ -133,6 +137,25 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
     saveItemsLocalAndRemote(newItems, { item: updatedItem, action: 'set' });
   };
 
+  const toggleItemForSale = (id: string) => {
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
+    const updatedItem: Item = {
+      ...target,
+      forSale: !target.forSale,
+    };
+    const newItems = items.map((item) => (item.id === id ? updatedItem : item));
+    saveItemsLocalAndRemote(newItems, { item: updatedItem, action: 'set' });
+  };
+
+  const setItemForSale = (id: string, forSale: boolean) => {
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
+    const updatedItem: Item = { ...target, forSale };
+    const newItems = items.map((item) => (item.id === id ? updatedItem : item));
+    saveItemsLocalAndRemote(newItems, { item: updatedItem, action: 'set' });
+  };
+
   const getItemById = (id: string) => {
     return items.find((item) => item.id === id);
   };
@@ -148,6 +171,8 @@ export const ItemProvider = ({ children }: ItemProviderProps) => {
     deleteItem,
     toggleItemAvailability,
     setItemAvailability,
+    toggleItemForSale,
+    setItemForSale,
     getItemById,
     getItemByCode,
   };
