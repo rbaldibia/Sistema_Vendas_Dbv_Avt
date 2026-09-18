@@ -7,6 +7,30 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Base Option styling for Select dropdowns */
+option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.dark option,
+html.dark option,
+[data-theme="dark"] option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="jabuticaba"] option {
+  background-color: #1e0e30 !important;
+  color: #f5f3ff !important;
+}
+
+html[data-theme="braseiro"] option,
+html[data-theme="brasaseiro"] option {
+  background-color: #24120e !important;
+  color: #fff7ed !important;
+}
+
 /* Custom animations */
 @keyframes fadeInOut {
   0% { opacity: 0; }

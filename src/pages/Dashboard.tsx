@@ -151,7 +151,7 @@ const Dashboard = () => {
             <select
               value={clubFilter}
               onChange={(e) => setClubFilter(e.target.value as 'all' | ClubType)}
-              className="bg-transparent focus:outline-none text-slate-900 dark:text-slate-100 font-semibold"
+              className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none cursor-pointer"
             >
               <option value="all">Todos os Clubes</option>
               <option value="Desbravadores">Desbravadores</option>
