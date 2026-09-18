@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'jabuticaba' | 'brasaseiro';
 
 interface ThemeContextType {
   theme: Theme;
@@ -10,10 +10,12 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const VALID_THEMES: Theme[] = ['light', 'dark', 'jabuticaba', 'brasaseiro'];
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('app-theme') as Theme | null;
-    if (savedTheme === 'light' || savedTheme === 'dark') {
+    if (savedTheme && VALID_THEMES.includes(savedTheme)) {
       return savedTheme;
     }
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -24,20 +26,29 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
+    root.setAttribute('data-theme', theme);
+    
+    // For Tailwind dark utilities: light is non-dark, dark/jabuticaba/brasaseiro use dark base styling
+    if (theme === 'light') {
       root.classList.remove('dark');
+    } else {
+      root.classList.add('dark');
     }
     localStorage.setItem('app-theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setThemeState((prev) => {
+      const currentIndex = VALID_THEMES.indexOf(prev);
+      const nextIndex = (currentIndex + 1) % VALID_THEMES.length;
+      return VALID_THEMES[nextIndex];
+    });
   };
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
+    if (VALID_THEMES.includes(newTheme)) {
+      setThemeState(newTheme);
+    }
   };
 
   return (
@@ -54,3 +65,4 @@ export const useTheme = (): ThemeContextType => {
   }
   return context;
 };
+

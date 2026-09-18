@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Menu, ChefHat, ShoppingBag, ClipboardList, PackageSearch, X, BarChart3, Archive, Sun, Moon } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Menu, ChefHat, ShoppingBag, ClipboardList, PackageSearch, X, BarChart3, Archive } from 'lucide-react';
+import ThemeSelector from './ThemeSelector';
 import logo from '/D5.png';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -51,26 +50,15 @@ const Navbar = () => {
               </NavLink>
             ))}
 
-            {/* Dark Mode Toggle Button */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 ml-2 rounded-lg bg-blue-700/60 dark:bg-slate-800 hover:bg-blue-700 dark:hover:bg-slate-700 text-amber-300 dark:text-amber-400 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"
-              title={theme === 'dark' ? 'Mudar para Modo Claro' : 'Mudar para Modo Escuro'}
-              aria-label="Alternar tema claro/escuro"
-            >
-              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+            {/* Unified Theme Selector Pop-up Button */}
+            <div className="ml-2">
+              <ThemeSelector />
+            </div>
           </div>
 
           {/* Mobile Right Controls */}
           <div className="flex lg:hidden items-center space-x-2">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg bg-blue-700/60 dark:bg-slate-800 text-amber-300 dark:text-amber-400 transition-colors focus:outline-none"
-              title="Alternar tema"
-            >
-              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+            <ThemeSelector compact />
             <button
               className="p-2 rounded-lg text-blue-100 hover:bg-blue-700 dark:hover:bg-slate-800 focus:outline-none"
               onClick={toggleMenu}
@@ -121,14 +109,8 @@ const Navbar = () => {
             </div>
 
             <div className="pt-6 border-t border-blue-800 dark:border-slate-800 flex items-center justify-between text-xs text-blue-200 dark:text-slate-400">
-              <span>Tema: {theme === 'dark' ? 'Modo Escuro' : 'Modo Claro'}</span>
-              <button
-                onClick={toggleTheme}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-800 dark:bg-slate-800 text-amber-300 dark:text-amber-400 font-medium"
-              >
-                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                <span>Alternar</span>
-              </button>
+              <span>Tema Visual</span>
+              <ThemeSelector />
             </div>
           </div>
         </div>
@@ -137,4 +119,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar;
+export default Navbar;
