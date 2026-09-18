@@ -130,86 +130,119 @@ body {
 }
 
 
-/* --- BRASASEIRO THEME --- */
+/* --- BRASEIRO THEME --- */
+[data-theme="braseiro"],
 [data-theme="brasaseiro"] {
   color-scheme: dark;
 }
 
+[data-theme="braseiro"] body,
 [data-theme="brasaseiro"] body,
+[data-theme="braseiro"] .dark\:bg-slate-900,
 [data-theme="brasaseiro"] .dark\:bg-slate-900 {
   background-color: #150b08 !important;
 }
 
+[data-theme="braseiro"] nav,
 [data-theme="brasaseiro"] nav,
+[data-theme="braseiro"] .dark\:bg-slate-950,
 [data-theme="brasaseiro"] .dark\:bg-slate-950 {
   background-color: #1d0e0a !important;
   border-color: #481f16 !important;
 }
 
+[data-theme="braseiro"] .dark\:bg-slate-800,
 [data-theme="brasaseiro"] .dark\:bg-slate-800 {
   background-color: #20100c !important;
 }
 
+[data-theme="braseiro"] .dark\:bg-slate-800\/50,
 [data-theme="brasaseiro"] .dark\:bg-slate-800\/50,
+[data-theme="braseiro"] .dark\:bg-slate-800\/70,
 [data-theme="brasaseiro"] .dark\:bg-slate-800\/70,
+[data-theme="braseiro"] .dark\:bg-slate-800\/90,
 [data-theme="brasaseiro"] .dark\:bg-slate-800\/90 {
   background-color: #2b1611 !important;
 }
 
+[data-theme="braseiro"] .dark\:border-slate-800,
 [data-theme="brasaseiro"] .dark\:border-slate-800,
+[data-theme="braseiro"] .dark\:border-slate-700,
 [data-theme="brasaseiro"] .dark\:border-slate-700,
+[data-theme="braseiro"] .dark\:border-slate-700\/60,
 [data-theme="brasaseiro"] .dark\:border-slate-700\/60,
+[data-theme="braseiro"] .dark\:border-slate-700\/80,
 [data-theme="brasaseiro"] .dark\:border-slate-700\/80 {
   border-color: #481f16 !important;
 }
 
+[data-theme="braseiro"] .dark\:text-slate-100,
 [data-theme="brasaseiro"] .dark\:text-slate-100,
+[data-theme="braseiro"] .dark\:text-slate-200,
 [data-theme="brasaseiro"] .dark\:text-slate-200 {
   color: #fff7ed !important;
 }
 
+[data-theme="braseiro"] .dark\:text-slate-300,
 [data-theme="brasaseiro"] .dark\:text-slate-300 {
   color: #ffedd5 !important;
 }
 
+[data-theme="braseiro"] .dark\:text-slate-400,
 [data-theme="brasaseiro"] .dark\:text-slate-400 {
   color: #fb923c !important;
 }
 
+[data-theme="braseiro"] .bg-blue-600,
 [data-theme="brasaseiro"] .bg-blue-600,
+[data-theme="braseiro"] .dark\:bg-blue-600,
 [data-theme="brasaseiro"] .dark\:bg-blue-600 {
   background-color: #ff6b4a !important;
   color: #ffffff !important;
   font-weight: 700 !important;
 }
 
+[data-theme="braseiro"] .bg-blue-600:hover,
 [data-theme="brasaseiro"] .bg-blue-600:hover,
+[data-theme="braseiro"] .dark\:bg-blue-600:hover,
 [data-theme="brasaseiro"] .dark\:bg-blue-600:hover,
+[data-theme="braseiro"] .hover\:bg-blue-700:hover,
 [data-theme="brasaseiro"] .hover\:bg-blue-700:hover,
+[data-theme="braseiro"] .dark\:hover\:bg-blue-700:hover,
 [data-theme="brasaseiro"] .dark\:hover\:bg-blue-700:hover {
   background-color: #ff8568 !important;
 }
 
+[data-theme="braseiro"] .bg-blue-700,
 [data-theme="brasaseiro"] .bg-blue-700,
+[data-theme="braseiro"] .dark\:bg-blue-700,
 [data-theme="brasaseiro"] .dark\:bg-blue-700 {
   background-color: #311712 !important;
 }
 
+[data-theme="braseiro"] .dark\:text-blue-400,
 [data-theme="brasaseiro"] .dark\:text-blue-400,
+[data-theme="braseiro"] .text-blue-600,
 [data-theme="brasaseiro"] .text-blue-600 {
   color: #ff8c69 !important;
 }
 
+[data-theme="braseiro"] input,
 [data-theme="brasaseiro"] input,
+[data-theme="braseiro"] select,
 [data-theme="brasaseiro"] select,
+[data-theme="braseiro"] textarea,
 [data-theme="brasaseiro"] textarea {
   background-color: #24120e !important;
   border-color: #562217 !important;
   color: #fff7ed !important;
 }
 
+[data-theme="braseiro"] input:focus,
 [data-theme="brasaseiro"] input:focus,
+[data-theme="braseiro"] select:focus,
 [data-theme="brasaseiro"] select:focus,
+[data-theme="braseiro"] textarea:focus,
 [data-theme="brasaseiro"] textarea:focus {
   border-color: #ff6b4a !important;
   outline: none;

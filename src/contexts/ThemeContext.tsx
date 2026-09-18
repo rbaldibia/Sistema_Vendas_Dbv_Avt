@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark' | 'jabuticaba' | 'brasaseiro';
+export type Theme = 'light' | 'dark' | 'jabuticaba' | 'braseiro';
 
 interface ThemeContextType {
   theme: Theme;
@@ -10,7 +10,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const VALID_THEMES: Theme[] = ['light', 'dark', 'jabuticaba', 'brasaseiro'];
+const VALID_THEMES: Theme[] = ['light', 'dark', 'jabuticaba', 'braseiro'];
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -28,7 +28,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     
-    // For Tailwind dark utilities: light is non-dark, dark/jabuticaba/brasaseiro use dark base styling
+    // For Tailwind dark utilities: light is non-dark, dark/jabuticaba/braseiro use dark base styling
     if (theme === 'light') {
       root.classList.remove('dark');
     } else {

@@ -45,8 +45,8 @@ const themeOptions: ThemeOption[] = [
     borderColor: 'border-purple-800',
   },
   {
-    id: 'brasaseiro',
-    name: 'Brasaseiro',
+    id: 'braseiro',
+    name: 'Braseiro',
     description: 'Tom brasa e coral quente',
     icon: Flame,
     iconColor: 'text-orange-500',
