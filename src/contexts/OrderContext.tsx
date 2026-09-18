@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Order, OrderContextType, OrderStatus, PaymentType } from '../types';
+import { Order, OrderContextType, OrderStatus, PaymentType, ClubType, SalesCycle } from '../types';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
@@ -32,6 +32,21 @@ const normalizePaidAmount = (data: any): number => {
 };
 
 export const OrderProvider = ({ children }: OrderProviderProps) => {
+  const [activeCycle, setActiveCycle] = useState<SalesCycle | null>(() => {
+    const saved = localStorage.getItem('activeSalesCycle');
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      return {
+        ...parsed,
+        startedAt: new Date(parsed.startedAt),
+        endedAt: parsed.endedAt ? new Date(parsed.endedAt) : undefined,
+      };
+    } catch {
+      return null;
+    }
+  });
+
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('currentOrders');
     if (!saved) return [];
@@ -83,7 +98,6 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
             originallyPaid: data.originallyPaid ?? data.isPaid,
           });
         });
-        // Sort orders by orderNumber ascending
         fetchedOrders.sort((a, b) => a.orderNumber - b.orderNumber);
         setOrders(fetchedOrders);
         localStorage.setItem('currentOrders', JSON.stringify(fetchedOrders));
@@ -127,6 +141,26 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     return () => unsubscribe();
   }, []);
 
+  const startSalesCycle = (clubType: ClubType) => {
+    const newCycle: SalesCycle = {
+      id: uuidv4(),
+      clubType,
+      startedAt: new Date(),
+      status: 'active',
+    };
+    setActiveCycle(newCycle);
+    localStorage.setItem('activeSalesCycle', JSON.stringify(newCycle));
+  };
+
+  const closeSalesCycle = () => {
+    if (orders.length > 0) {
+      archiveOrders(orders);
+      clearOrders();
+    }
+    setActiveCycle(null);
+    localStorage.removeItem('activeSalesCycle');
+  };
+
   const getNextOrderNumber = () => {
     const allOrders = [...orders, ...archivedOrders];
     if (allOrders.length === 0) return 1;
@@ -134,38 +168,39 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     return maxOrderNumber + 1;
   };
 
-const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
-  if (obj === null || typeof obj !== 'object') return obj;
+  const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
+    if (obj === null || typeof obj !== 'object') return obj;
 
-  if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeForFirestore(item)) as unknown as T;
-  }
-
-  const cleaned: any = {};
-  Object.keys(obj).forEach((key) => {
-    const val = obj[key];
-    if (val !== undefined) {
-      cleaned[key] =
-        val !== null && typeof val === 'object' && !(val instanceof Date)
-          ? sanitizeForFirestore(val)
-          : val;
+    if (Array.isArray(obj)) {
+      return obj.map((item) => sanitizeForFirestore(item)) as unknown as T;
     }
-  });
 
-  return cleaned;
-};
+    const cleaned: any = {};
+    Object.keys(obj).forEach((key) => {
+      const val = obj[key];
+      if (val !== undefined) {
+        cleaned[key] =
+          val !== null && typeof val === 'object' && !(val instanceof Date)
+            ? sanitizeForFirestore(val)
+            : val;
+      }
+    });
 
-const serializeOrderForFirestore = (order: Order) => {
-  const serialized = {
-    ...order,
-    createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
+    return cleaned;
   };
-  return sanitizeForFirestore(serialized);
-};
+
+  const serializeOrderForFirestore = (order: Order) => {
+    const serialized = {
+      ...order,
+      createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
+    };
+    return sanitizeForFirestore(serialized);
+  };
 
   const addOrder = (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>): string => {
     const calculatedPaidAmount = order.paidAmount ?? (order.isPaid ? order.totalAmount : 0);
     const effectiveIsPaid = order.isPaid || calculatedPaidAmount >= order.totalAmount;
+    const effectiveClubType = order.clubType || activeCycle?.clubType || 'Desbravadores';
 
     const newOrder: Order = {
       ...order,
@@ -175,6 +210,8 @@ const serializeOrderForFirestore = (order: Order) => {
       isPaid: effectiveIsPaid,
       paidAmount: calculatedPaidAmount,
       originallyPaid: order.originallyPaid ?? effectiveIsPaid,
+      clubType: effectiveClubType,
+      cycleId: activeCycle?.id,
     };
 
     const newOrders = [...orders, newOrder];
@@ -309,10 +346,12 @@ const serializeOrderForFirestore = (order: Order) => {
   };
 
   const archiveOrders = (ordersToArchive: Order[]) => {
+    const currentClub = activeCycle?.clubType || 'Desbravadores';
     const preparedToArchive = ordersToArchive.map((o) => ({
       ...o,
       originallyPaid: o.originallyPaid ?? o.isPaid,
       paidAmount: o.paidAmount ?? (o.isPaid ? o.totalAmount : 0),
+      clubType: o.clubType || currentClub,
     }));
     const updated = [...archivedOrders, ...preparedToArchive];
     setArchivedOrders(updated);
@@ -364,6 +403,58 @@ const serializeOrderForFirestore = (order: Order) => {
     }
   };
 
+  // STRICT SAFETY RULE: Deletes an archived order ONLY if clubType === 'Testes'
+  const deleteTestOrder = (id: string): boolean => {
+    const target = archivedOrders.find((o) => o.id === id);
+    if (!target) return false;
+
+    // Safety constraint: Never allow deleting Desbravadores or Aventureiros!
+    if (target.clubType !== 'Testes') {
+      console.warn(`Safety block: Order ${id} is of type "${target.clubType}" and cannot be deleted.`);
+      return false;
+    }
+
+    const updatedArchived = archivedOrders.filter((o) => o.id !== id);
+    setArchivedOrders(updatedArchived);
+    localStorage.setItem('archivedOrders', JSON.stringify(updatedArchived));
+
+    if (isFirebaseConfigured) {
+      deleteDoc(doc(db, 'archived_orders', id)).catch((err) =>
+        console.error('Failed to delete test order from Firestore:', err)
+      );
+    }
+    return true;
+  };
+
+  // STRICT SAFETY RULE: Deletes all archived test orders on a given date ONLY if clubType === 'Testes'
+  const deleteTestCycleByDate = (dateString: string): boolean => {
+    const ordersOnDate = archivedOrders.filter((o) => {
+      const d = new Date(o.createdAt).toISOString().split('T')[0];
+      return d === dateString;
+    });
+
+    const testOrdersOnDate = ordersOnDate.filter((o) => o.clubType === 'Testes');
+    if (testOrdersOnDate.length === 0) return false;
+
+    const testIds = new Set(testOrdersOnDate.map((o) => o.id));
+    const updatedArchived = archivedOrders.filter((o) => !testIds.has(o.id));
+
+    setArchivedOrders(updatedArchived);
+    localStorage.setItem('archivedOrders', JSON.stringify(updatedArchived));
+
+    if (isFirebaseConfigured) {
+      testOrdersOnDate.forEach(async (order) => {
+        try {
+          await deleteDoc(doc(db, 'archived_orders', order.id));
+        } catch (err) {
+          console.error('Failed to delete test order from Firestore:', err);
+        }
+      });
+    }
+
+    return true;
+  };
+
   const getArchivedOrdersByDateRange = (startDate: Date, endDate: Date) => {
     return archivedOrders.filter(
       (order) => order.createdAt >= startDate && order.createdAt <= endDate
@@ -373,6 +464,9 @@ const serializeOrderForFirestore = (order: Order) => {
   const value = {
     orders,
     archivedOrders,
+    activeCycle,
+    startSalesCycle,
+    closeSalesCycle,
     addOrder,
     updateOrderStatus,
     deliverOrderItem,
@@ -384,6 +478,8 @@ const serializeOrderForFirestore = (order: Order) => {
     archiveOrders,
     clearOrders,
     deleteOrder,
+    deleteTestOrder,
+    deleteTestCycleByDate,
     getArchivedOrdersByDateRange,
   };
 

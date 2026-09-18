@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar, ChevronDown, DollarSign, CheckCircle, Filter, X, MessageSquare } from 'lucide-react';
+import { Calendar, ChevronDown, DollarSign, CheckCircle, Filter, X, MessageSquare, Trash2, Shield, AlertTriangle } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -7,14 +7,17 @@ import Badge from '../components/ui/Badge';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { formatCurrency } from '../utils/formatters';
-import { Order, PaymentType } from '../types';
+import { Order, PaymentType, ClubType } from '../types';
 
 const SalesHistory = () => {
-  const { archivedOrders, updateArchivedOrderPayment } = useOrderContext();
+  const { archivedOrders, updateArchivedOrderPayment, deleteTestOrder, deleteTestCycleByDate } = useOrderContext();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'unpaid'>('all');
+  const [clubFilter, setClubFilter] = useState<'all' | ClubType>('all');
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<Order | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [showDeleteCycleConfirmModal, setShowDeleteCycleConfirmModal] = useState(false);
   const [paymentType, setPaymentType] = useState<PaymentType>('Dinheiro');
   const [paymentMode, setPaymentMode] = useState<'full' | 'partial'>('full');
   const [partialPaymentInput, setPartialPaymentInput] = useState<string>('');
@@ -39,11 +42,19 @@ const SalesHistory = () => {
   }, [selectedDate, archivedOrders]);
 
   const displayedOrders = useMemo(() => {
+    let filtered = ordersOnSelectedDate;
     if (paymentFilter === 'unpaid') {
-      return ordersOnSelectedDate.filter(order => !order.isPaid);
+      filtered = filtered.filter(order => !order.isPaid);
     }
-    return ordersOnSelectedDate;
-  }, [ordersOnSelectedDate, paymentFilter]);
+    if (clubFilter !== 'all') {
+      filtered = filtered.filter(order => (order.clubType || 'Desbravadores') === clubFilter);
+    }
+    return filtered;
+  }, [ordersOnSelectedDate, paymentFilter, clubFilter]);
+
+  const hasTestOrdersOnSelectedDate = useMemo(() => {
+    return ordersOnSelectedDate.some(o => o.clubType === 'Testes');
+  }, [ordersOnSelectedDate]);
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
@@ -56,18 +67,18 @@ const SalesHistory = () => {
   };
 
   const totalSalesOnDate = useMemo(() => {
-    return ordersOnSelectedDate.reduce((sum, order) => sum + order.totalAmount, 0);
-  }, [ordersOnSelectedDate]);
+    return displayedOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+  }, [displayedOrders]);
 
   const paymentMethodStats = useMemo(() => {
     const stats: Record<string, number> = {};
-    ordersOnSelectedDate.forEach(order => {
+    displayedOrders.forEach(order => {
       if (order.isPaid && order.paymentType) {
         stats[order.paymentType] = (stats[order.paymentType] || 0) + 1;
       }
     });
     return stats;
-  }, [ordersOnSelectedDate]);
+  }, [displayedOrders]);
 
   const handleOpenPaymentModal = (order: Order) => {
     setSelectedOrderForPayment(order);
@@ -113,13 +124,55 @@ const SalesHistory = () => {
     }, 3500);
   };
 
+  const handleDeleteSingleTestOrder = () => {
+    if (!orderToDelete) return;
+    const success = deleteTestOrder(orderToDelete.id);
+    if (success) {
+      setSuccessMessage(`Pedido de teste #${orderToDelete.orderNumber} excluído com sucesso.`);
+    } else {
+      setModalError('Não é permitido excluir pedidos de vendas oficiais (Desbravadores ou Aventureiros).');
+    }
+    setOrderToDelete(null);
+
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3500);
+  };
+
+  const handleDeleteTestCycle = () => {
+    if (!selectedDate) return;
+    const success = deleteTestCycleByDate(selectedDate);
+    if (success) {
+      setSuccessMessage(`Todos os pedidos do ciclo de teste da data ${formatDateBR(selectedDate)} foram excluídos.`);
+    }
+    setShowDeleteCycleConfirmModal(false);
+
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3500);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Histórico de Vendas</h1>
-        <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          Consulte o arquivo de vendas de ciclos passados por data e gerencie pendências
-        </p>
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-3 sm:pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Histórico de Vendas</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Consulte o arquivo de vendas de ciclos passados por data, filtre por clube e gerencie pendências
+          </p>
+        </div>
+
+        {selectedDate && hasTestOrdersOnSelectedDate && (
+          <Button
+            variant="danger"
+            size="sm"
+            icon={<Trash2 size={16} />}
+            onClick={() => setShowDeleteCycleConfirmModal(true)}
+            className="self-start sm:self-auto"
+          >
+            Excluir Testes desta Data
+          </Button>
+        )}
       </div>
 
       {successMessage && (
@@ -129,9 +182,9 @@ const SalesHistory = () => {
         </div>
       )}
 
-      {/* Date and Payment Filter Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative max-w-xs flex-1">
+      {/* Date, Club and Payment Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap">
+        <div className="relative min-w-[200px] flex-1">
           <button
             onClick={() => setIsCalendarOpen(!isCalendarOpen)}
             className="w-full flex items-center justify-between px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl shadow-xs text-slate-900 dark:text-slate-100 font-medium text-sm hover:border-slate-400 dark:hover:border-slate-600 transition-colors"
@@ -168,16 +221,31 @@ const SalesHistory = () => {
         </div>
 
         {selectedDate && (
-          <div className="sm:w-56">
-            <Select
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value as 'all' | 'unpaid')}
-              icon={<Filter size={16} />}
-            >
-              <option value="all">Nenhum (Todos)</option>
-              <option value="unpaid">Pendentes</option>
-            </Select>
-          </div>
+          <>
+            <div className="sm:w-52">
+              <Select
+                value={clubFilter}
+                onChange={(e) => setClubFilter(e.target.value as 'all' | ClubType)}
+                icon={<Shield size={16} />}
+              >
+                <option value="all">Todos os Clubes</option>
+                <option value="Desbravadores">Desbravadores</option>
+                <option value="Aventureiros">Aventureiros</option>
+                <option value="Testes">Testes</option>
+              </Select>
+            </div>
+
+            <div className="sm:w-48">
+              <Select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value as 'all' | 'unpaid')}
+                icon={<Filter size={16} />}
+              >
+                <option value="all">Todos Pagamentos</option>
+                <option value="unpaid">Somente Pendentes</option>
+              </Select>
+            </div>
+          </>
         )}
       </div>
 
@@ -186,9 +254,9 @@ const SalesHistory = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800/80 border border-blue-200 dark:border-slate-700">
               <div className="space-y-1">
-                <p className="text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Faturamento Total</p>
+                <p className="text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Faturamento Filtrado</p>
                 <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(totalSalesOnDate)}</p>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">{ordersOnSelectedDate.length} pedido(s) arquivado(s)</p>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">{displayedOrders.length} pedido(s) exibidos</p>
               </div>
             </Card>
 
@@ -196,10 +264,10 @@ const SalesHistory = () => {
               <div className="space-y-1">
                 <p className="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Pagamentos Confirmados</p>
                 <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100">
-                  {ordersOnSelectedDate.filter(o => o.isPaid).length}
+                  {displayedOrders.filter(o => o.isPaid).length}
                 </p>
                 <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  {ordersOnSelectedDate.filter(o => !o.isPaid).length} pendente(s)
+                  {displayedOrders.filter(o => !o.isPaid).length} pendente(s)
                 </p>
               </div>
             </Card>
@@ -218,12 +286,10 @@ const SalesHistory = () => {
             </Card>
           )}
 
-          <Card title={`Pedidos do Dia Arquivados ${paymentFilter === 'unpaid' ? '(Somente Pendentes)' : ''}`}>
+          <Card title={`Pedidos Arquivados (${displayedOrders.length})`}>
             {displayedOrders.length === 0 ? (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                {paymentFilter === 'unpaid'
-                  ? 'Nenhum pedido pendente de pagamento para esta data!'
-                  : 'Nenhum pedido registrado para esta data'}
+                Nenhum pedido encontrado com os filtros selecionados!
               </div>
             ) : (
               <div className="space-y-3.5">
@@ -231,13 +297,19 @@ const SalesHistory = () => {
                   const currentPaid = order.paidAmount ?? (order.isPaid ? order.totalAmount : 0);
                   const remaining = Math.max(0, order.totalAmount - currentPaid);
                   const isPartial = !order.isPaid && currentPaid > 0;
+                  const isTest = order.clubType === 'Testes';
 
                   return (
-                    <div key={order.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4">
-                      <div className="flex justify-between items-start mb-3">
+                    <div key={order.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4 transition-all">
+                      <div className="flex justify-between items-start mb-3 gap-2">
                         <div>
-                          <p className="font-bold text-base text-slate-900 dark:text-slate-100">Comanda #{order.orderNumber}</p>
-                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{order.customerName}</p>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-bold text-base text-slate-900 dark:text-slate-100">Comanda #{order.orderNumber}</p>
+                            <Badge variant={isTest ? 'warning' : order.clubType === 'Aventureiros' ? 'info' : 'success'}>
+                              {order.clubType || 'Desbravadores'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{order.customerName}</p>
                         </div>
                         <div className="text-right flex flex-col items-end gap-1">
                           <p className="font-bold text-blue-600 dark:text-blue-400 text-base">{formatCurrency(order.totalAmount)}</p>
@@ -257,6 +329,20 @@ const SalesHistory = () => {
                                 Dar Baixa
                               </Button>
                             )}
+
+                            {/* STRICT SAFETY RULE: Excluir button ONLY rendered for Testes */}
+                            {isTest && (
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                icon={<Trash2 size={14} />}
+                                onClick={() => setOrderToDelete(order)}
+                                title="Excluir este pedido de teste"
+                              >
+                                Excluir
+                              </Button>
+                            )}
+
                             <Badge variant={order.isPaid ? 'success' : isPartial ? 'warning' : 'warning'}>
                               {order.isPaid
                                 ? order.paymentType || 'Pago'
@@ -304,6 +390,52 @@ const SalesHistory = () => {
             <p className="text-base font-medium">Selecione uma data acima para visualizar o histórico de vendas arquivadas</p>
           </div>
         </Card>
+      )}
+
+      {/* Delete Test Order Confirmation Modal */}
+      {orderToDelete && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl space-y-4">
+            <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2 text-red-600 dark:text-red-400">
+              <AlertTriangle size={22} />
+              Excluir Pedido de Teste?
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Tem certeza que deseja excluir a comanda de teste <strong className="text-slate-900 dark:text-slate-100">#{orderToDelete.orderNumber}</strong> do cliente <strong>{orderToDelete.customerName}</strong>?
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" fullWidth onClick={() => setOrderToDelete(null)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" fullWidth icon={<Trash2 size={16} />} onClick={handleDeleteSingleTestOrder}>
+                Confirmar Exclusão
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete All Test Orders for Selected Date Modal */}
+      {showDeleteCycleConfirmModal && selectedDate && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl space-y-4">
+            <h3 className="font-bold text-lg text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertTriangle size={22} />
+              Excluir Testes da Data {formatDateBR(selectedDate)}?
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Esta ação removerá permanentemente apenas os pedidos do clube <strong className="text-amber-600 dark:text-amber-400">Testes</strong> realizados em <strong>{formatDateBR(selectedDate)}</strong>. As vendas reais de Desbravadores e Aventureiros serão integralmente mantidas.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" fullWidth onClick={() => setShowDeleteCycleConfirmModal(false)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" fullWidth icon={<Trash2 size={16} />} onClick={handleDeleteTestCycle}>
+                Excluir Somente Testes
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Dar Baixa de Pagamento Modal */}

@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ChefHat, ShoppingBag, Archive, ShoppingCart, Package, RefreshCw, AlertTriangle, MessageSquare } from 'lucide-react';
+import { Plus, Trash2, ChefHat, ShoppingBag, Archive, ShoppingCart, Package, RefreshCw, AlertTriangle, MessageSquare, Play, Shield, Sparkles, TestTube } from 'lucide-react';
 import { useItemContext } from '../contexts/ItemContext';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
+import Badge from '../components/ui/Badge';
 import { formatCurrency } from '../utils/formatters';
-import { OrderItem, PaymentType } from '../types';
+import { OrderItem, PaymentType, ClubType } from '../types';
 
 const Sales = () => {
   const { items, toggleItemAvailability } = useItemContext();
-  const { orders, addOrder, getNextOrderNumber, archiveOrders, clearOrders } = useOrderContext();
+  const { orders, addOrder, getNextOrderNumber, archiveOrders, clearOrders, activeCycle, startSalesCycle, closeSalesCycle } = useOrderContext();
   
   const salesItems = items.filter((item) => item.forSale === true);
   
@@ -20,6 +21,7 @@ const Sales = () => {
   const [paymentStatus, setPaymentStatus] = useState<'unpaid' | 'full' | 'partial'>('unpaid');
   const [partialPaidAmount, setPartialPaidAmount] = useState<string>('');
   const [paymentType, setPaymentType] = useState<PaymentType>('Dinheiro');
+  const [selectedClubForNewCycle, setSelectedClubForNewCycle] = useState<ClubType>('Desbravadores');
   const [orderSuccessMessage, setOrderSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -38,7 +40,17 @@ const Sales = () => {
     setErrorMessage(null);
   }, [orderItems]);
   
+  const handleStartCycle = () => {
+    startSalesCycle(selectedClubForNewCycle);
+    setOrderSuccessMessage(`Ciclo de vendas iniciado para o clube "${selectedClubForNewCycle}"!`);
+  };
+
   const handleAddItem = (itemId: string) => {
+    if (!activeCycle) {
+      setErrorMessage('Por favor, inicie um ciclo de vendas escolhendo o clube acima antes de realizar pedidos.');
+      return;
+    }
+
     const item = items.find(i => i.id === itemId);
     
     if (!item) return;
@@ -102,6 +114,11 @@ const Sales = () => {
   };
   
   const handleSubmitOrder = () => {
+    if (!activeCycle) {
+      setErrorMessage('Inicie o ciclo de vendas antes de enviar pedidos.');
+      return;
+    }
+
     if (orderItems.length === 0) {
       setErrorMessage('Adicione pelo menos um item ao pedido.');
       return;
@@ -168,7 +185,8 @@ const Sales = () => {
         customerName: customerName.trim(),
         isPaid: finalIsPaid,
         paidAmount: finalPaidAmount,
-        paymentType: (paymentStatus === 'full' || paymentStatus === 'partial') ? paymentType : undefined
+        paymentType: (paymentStatus === 'full' || paymentStatus === 'partial') ? paymentType : undefined,
+        clubType: activeCycle?.clubType || 'Desbravadores',
       });
 
       setOrderItems([]);
@@ -177,7 +195,7 @@ const Sales = () => {
       setPartialPaidAmount('');
       setPaymentType('Dinheiro');
       setShowSubmitConfirmModal(false);
-      setOrderSuccessMessage(`Pedido #${nextOrderNumber} enviado para a cozinha com sucesso!`);
+      setOrderSuccessMessage(`Pedido #${nextOrderNumber} (${activeCycle?.clubType}) enviado para a cozinha com sucesso!`);
       
       // On mobile, switch back to products view after order
       setMobileTab('products');
@@ -192,16 +210,10 @@ const Sales = () => {
   };
 
   const handleCloseSalesCycle = () => {
-    if (orders.length === 0) {
-      setErrorMessage('Nenhum pedido para arquivar.');
-      setShowArchiveModal(false);
-      return;
-    }
-
-    archiveOrders(orders);
-    clearOrders();
+    const totalArchived = orders.length;
+    closeSalesCycle();
     setShowArchiveModal(false);
-    setOrderSuccessMessage(`${orders.length} pedido(s) arquivado(s) com sucesso!`);
+    setOrderSuccessMessage(`Ciclo de vendas encerrado com sucesso! ${totalArchived} pedido(s) arquivado(s).`);
   };
   
   return (
@@ -211,21 +223,102 @@ const Sales = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Fazer Pedido</h1>
           <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Selecione os produtos e registre as vendas rapidamente
+            Selecione o clube, inicie o ciclo de vendas e registre os pedidos
           </p>
         </div>
-        {orders.length > 0 && (
+        {activeCycle && (
           <Button
             variant="secondary"
             size="sm"
             icon={<Archive size={18} />}
             onClick={() => setShowArchiveModal(true)}
-            className="self-start sm:self-auto"
+            className="self-start sm:self-auto bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border-amber-300 dark:border-amber-800"
           >
-            Fechar Ciclo ({orders.length})
+            Fechar Ciclo {activeCycle.clubType} ({orders.length})
           </Button>
         )}
       </div>
+
+      {/* Sales Cycle Control Bar */}
+      {!activeCycle ? (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800/90 border-blue-200 dark:border-slate-700 shadow-md">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-blue-600 text-white rounded-xl shadow-xs">
+                <Shield size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base sm:text-lg">
+                  Iniciar Novo Ciclo de Vendas
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                  Escolha o clube responsável pelas vendas antes de comissionar e lançar os pedidos.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="w-full sm:w-56">
+                <Select
+                  value={selectedClubForNewCycle}
+                  onChange={(e) => setSelectedClubForNewCycle(e.target.value as ClubType)}
+                >
+                  <option value="Desbravadores">Desbravadores</option>
+                  <option value="Aventureiros">Aventureiros</option>
+                  <option value="Testes">Testes (Modo Teste)</option>
+                </Select>
+              </div>
+              <Button
+                variant="primary"
+                icon={<Play size={18} />}
+                onClick={handleStartCycle}
+                className="whitespace-nowrap"
+              >
+                Iniciar Ciclo
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800/80 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center space-x-3">
+            <div className={`p-2.5 rounded-xl text-white font-bold ${
+              activeCycle.clubType === 'Testes'
+                ? 'bg-amber-500'
+                : activeCycle.clubType === 'Aventureiros'
+                ? 'bg-purple-600'
+                : 'bg-emerald-600'
+            }`}>
+              {activeCycle.clubType === 'Testes' ? <TestTube size={22} /> : <Shield size={22} />}
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                  Ciclo Ativo
+                </span>
+                <Badge variant={activeCycle.clubType === 'Testes' ? 'warning' : 'success'}>
+                  {activeCycle.clubType}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                {orders.length} pedido(s) realizados neste ciclo atual.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Archive size={16} />}
+              onClick={() => setShowArchiveModal(true)}
+            >
+              Fechar e Arquivar Ciclo
+            </Button>
+          </div>
+        </div>
+      )}
+
 
       {/* Mobile Tab Toggle */}
       <div className="lg:hidden flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl shadow-inner">

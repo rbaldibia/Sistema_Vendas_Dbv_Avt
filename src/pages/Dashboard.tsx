@@ -1,15 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Calendar, TrendingUp, Users, DollarSign } from 'lucide-react';
+import { Calendar, TrendingUp, Users, DollarSign, Shield } from 'lucide-react';
 import { useOrderContext } from '../contexts/OrderContext';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { formatCurrency } from '../utils/formatters';
+import { ClubType } from '../types';
 
 const Dashboard = () => {
   const { archivedOrders } = useOrderContext();
   const [filterMode, setFilterMode] = useState<'date' | 'period'>('date');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [dateRange, setDateRange] = useState('7');
+  const [clubFilter, setClubFilter] = useState<'all' | ClubType>('all');
 
   const availableDates = useMemo(() => {
     const dates = new Set<string>();
@@ -39,19 +41,29 @@ const Dashboard = () => {
   };
 
   const filteredOrders = useMemo(() => {
+    let baseOrders = archivedOrders;
     if (filterMode === 'date') {
-      if (!selectedDate) return [];
-      return archivedOrders.filter(order => {
-        const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
-        return orderDate === selectedDate;
-      });
+      if (!selectedDate) baseOrders = [];
+      else {
+        baseOrders = archivedOrders.filter(order => {
+          const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
+          return orderDate === selectedDate;
+        });
+      }
     } else {
-      if (dateRange === 'all') return archivedOrders;
-      const days = parseInt(dateRange);
-      const cutoffDate = getDaysAgo(days);
-      return archivedOrders.filter(order => new Date(order.createdAt) >= cutoffDate);
+      if (dateRange !== 'all') {
+        const days = parseInt(dateRange);
+        const cutoffDate = getDaysAgo(days);
+        baseOrders = archivedOrders.filter(order => new Date(order.createdAt) >= cutoffDate);
+      }
     }
-  }, [filterMode, selectedDate, dateRange, archivedOrders]);
+
+    if (clubFilter !== 'all') {
+      baseOrders = baseOrders.filter(order => (order.clubType || 'Desbravadores') === clubFilter);
+    }
+
+    return baseOrders;
+  }, [filterMode, selectedDate, dateRange, clubFilter, archivedOrders]);
 
   const totalRevenue = useMemo(() => {
     return filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0);
@@ -63,6 +75,24 @@ const Dashboard = () => {
 
   const unpaidOrders = useMemo(() => {
     return filteredOrders.filter(order => !(order.originallyPaid ?? order.isPaid));
+  }, [filteredOrders]);
+
+  const clubStats = useMemo(() => {
+    const stats: Record<ClubType, { count: number; total: number }> = {
+      Desbravadores: { count: 0, total: 0 },
+      Aventureiros: { count: 0, total: 0 },
+      Testes: { count: 0, total: 0 },
+    };
+
+    filteredOrders.forEach(order => {
+      const club = order.clubType || 'Desbravadores';
+      if (stats[club]) {
+        stats[club].count += 1;
+        stats[club].total += order.totalAmount;
+      }
+    });
+
+    return stats;
   }, [filteredOrders]);
 
   const paymentMethodDistribution = useMemo(() => {
@@ -109,12 +139,27 @@ const Dashboard = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard & Indicadores</h1>
           <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Análise em tempo real de receita, vendas e produtos mais procurados
+            Análise de receita, métricas por clube e produtos mais procurados
           </p>
         </div>
 
         {/* Dual Filter Controls */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          {/* Club Filter Selector */}
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-xl shadow-xs text-xs sm:text-sm font-medium">
+            <Shield size={16} className="text-blue-600 dark:text-blue-400" />
+            <select
+              value={clubFilter}
+              onChange={(e) => setClubFilter(e.target.value as 'all' | ClubType)}
+              className="bg-transparent focus:outline-none text-slate-900 dark:text-slate-100 font-semibold"
+            >
+              <option value="all">Todos os Clubes</option>
+              <option value="Desbravadores">Desbravadores</option>
+              <option value="Aventureiros">Aventureiros</option>
+              <option value="Testes">Testes</option>
+            </select>
+          </div>
+
           {/* Mode Selector Toggle */}
           <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl shadow-inner text-xs sm:text-sm font-semibold">
             <button
@@ -125,7 +170,7 @@ const Dashboard = () => {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
-              Por Data do Ciclo
+              Por Data
             </button>
             <button
               onClick={() => setFilterMode('period')}
@@ -135,7 +180,7 @@ const Dashboard = () => {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
-              Por Período Acumulado
+              Acumulado
             </button>
           </div>
 
@@ -234,6 +279,42 @@ const Dashboard = () => {
           </div>
         </Card>
       </div>
+
+      {/* Breakdown per Club */}
+      <Card title="Desempenho por Tipo de Clube">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {(['Desbravadores', 'Aventureiros', 'Testes'] as ClubType[]).map((club) => {
+            const data = clubStats[club];
+            return (
+              <div
+                key={club}
+                className={`p-4 rounded-xl border flex flex-col justify-between space-y-2 ${
+                  club === 'Testes'
+                    ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/60'
+                    : club === 'Aventureiros'
+                    ? 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800/60'
+                    : 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{club}</span>
+                  <Badge variant={club === 'Testes' ? 'warning' : club === 'Aventureiros' ? 'info' : 'success'}>
+                    {data.count} pedidos
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
+                    {formatCurrency(data.total)}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {totalRevenue > 0 ? ((data.total / totalRevenue) * 100).toFixed(1) : 0}% do faturamento
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card title="Métodos de Pagamento">
@@ -335,3 +416,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

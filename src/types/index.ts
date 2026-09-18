@@ -22,6 +22,15 @@ export interface OrderItem {
 
 export type OrderStatus = 'Pendente' | 'Em preparo' | 'Pronto' | 'Entregue';
 export type PaymentType = 'Dinheiro' | 'Pix' | 'Débito' | 'Crédito';
+export type ClubType = 'Desbravadores' | 'Aventureiros' | 'Testes';
+
+export interface SalesCycle {
+  id: string;
+  clubType: ClubType;
+  startedAt: Date;
+  endedAt?: Date;
+  status: 'active' | 'closed';
+}
 
 export interface Order {
   id: string;
@@ -35,6 +44,8 @@ export interface Order {
   paymentType?: PaymentType;
   originallyPaid?: boolean;
   paidAmount?: number;
+  clubType?: ClubType;
+  cycleId?: string;
 }
 
 // Context types
@@ -54,6 +65,9 @@ export interface ItemContextType {
 export interface OrderContextType {
   orders: Order[];
   archivedOrders: Order[];
+  activeCycle: SalesCycle | null;
+  startSalesCycle: (clubType: ClubType) => void;
+  closeSalesCycle: () => void;
   addOrder: (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => string;
   updateOrderStatus: (id: string, status: OrderStatus) => void;
   deliverOrderItem: (orderId: string, itemIndex: number, quantityToDeliver?: number) => void;
@@ -65,6 +79,8 @@ export interface OrderContextType {
   archiveOrders: (orders: Order[]) => void;
   clearOrders: () => void;
   deleteOrder: (id: string) => void;
+  deleteTestOrder: (id: string) => boolean;
+  deleteTestCycleByDate: (dateString: string) => boolean;
   getArchivedOrdersByDateRange: (startDate: Date, endDate: Date) => Order[];
 }
 
@@ -79,4 +95,5 @@ export interface InventoryContextType {
   getInventoryByItemId: (itemId: string) => number;
   checkStockAvailability: (itemId: string, quantity: number) => boolean;
   reduceStock: (stockItems: { itemId: string; quantity: number }[]) => boolean;
-}
+}
+
